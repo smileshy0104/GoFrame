@@ -6,6 +6,8 @@ import (
 	"net/http"
 )
 
+const ANY = "ANY"
+
 // HandlerFunc 定义了处理器函数的类型，它接收一个 http.ResponseWriter 和一个 *http.Request 作为参数
 // type HandlerFunc func(w http.ResponseWriter, r *http.Request)
 
@@ -29,42 +31,96 @@ type router struct {
 func (r *router) Group(name string) *routerGroup {
 	g := &routerGroup{
 		groupName:        name,
-		handlerMap:       make(map[string]HandlerFunc),
+		handlerMap:       make(map[string]map[string]HandlerFunc),
 		handlerMethodMap: make(map[string][]string),
 	}
 	r.groups = append(r.groups, g)
 	return g
 }
 
-// Any 为当前路由组添加一个处理所有HTTP方法的路由。
-// 该方法接收路由的名称和处理函数作为参数。
-// 它将路由的处理函数注册到handlerMap中，并将该路由的名称添加到处理所有方法的handlerMethodMap中。
+// handle 是一个用于在路由组中注册处理程序的方法。
+// 它接受三个参数：name（路由的名称）、method（HTTP 方法）和 handlerFunc（处理程序）。
+// 该方法的主要作用是将处理程序与路由名称和HTTP方法关联起来，以便正确处理相应的HTTP请求。
+func (r *routerGroup) handle(name string, method string, handlerFunc HandlerFunc) {
+	// 检查 handlerMap 中是否已存在该路由名称。
+	_, ok := r.handlerMap[name]
+	// 如果不存在，则创建一个新map，用于存储该路由名称对应的处理程序。
+	if !ok {
+		r.handlerMap[name] = make(map[string]HandlerFunc)
+	}
+	// 将处理程序与路由名称和HTTP方法关联起来。
+	r.handlerMap[name][method] = handlerFunc
+
+	// 将路由名称添加到 handlerMethodMap 中，以便按HTTP方法进行索引。
+	r.handlerMethodMap[method] = append(r.handlerMethodMap[method], name)
+}
+
+// Any 添加一个处理所有HTTP方法的路由
+// 参数:
+//
+//	name: 路由的名称或路径
+//	handlerFunc: 处理路由请求的处理函数
 func (r *routerGroup) Any(name string, handlerFunc HandlerFunc) {
-	r.handlerMap[name] = handlerFunc
-	r.handlerMethodMap["ANY"] = append(r.handlerMethodMap["ANY"], name)
+	r.handle(name, "ANY", handlerFunc)
 }
 
-// Get 为当前路由组添加一个处理GET请求的路由。
-// 该方法接收路由的名称和处理函数作为参数。
-// 它将路由的处理函数注册到handlerMap中，并将该路由的名称添加到处理GET请求的handlerMethodMap中。
+// Handle 添加一个处理特定HTTP方法的路由
+// 参数:
+//
+//	name: 路由的名称或路径
+//	method: HTTP方法，如 GET, POST 等
+//	handlerFunc: 处理路由请求的处理函数
+//
+// 注意: 会对method的有效性做校验
+func (r *routerGroup) Handle(name string, method string, handlerFunc HandlerFunc) {
+	//method有效性做校验
+	r.handle(name, method, handlerFunc)
+}
+
+// Get 添加一个处理GET请求的路由
+// 参数:
+//
+//	name: 路由的名称或路径
+//	handlerFunc: 处理路由请求的处理函数
 func (r *routerGroup) Get(name string, handlerFunc HandlerFunc) {
-	r.handlerMap[name] = handlerFunc
-	r.handlerMethodMap["GET"] = append(r.handlerMethodMap["GET"], name)
+	r.handle(name, http.MethodGet, handlerFunc)
 }
 
-// Post 为当前路由组添加一个处理POST请求的路由。
-// 该方法接收路由的名称和处理函数作为参数。
-// 它将路由的处理函数注册到handlerMap中，并将该路由的名称添加到处理POST请求的handlerMethodMap中。
+// Post 添加一个处理POST请求的路由
 func (r *routerGroup) Post(name string, handlerFunc HandlerFunc) {
-	r.handlerMap[name] = handlerFunc
-	r.handlerMethodMap["POST"] = append(r.handlerMethodMap["POST"], name)
+	r.handle(name, http.MethodPost, handlerFunc)
+}
+
+// Delete 添加一个处理DELETE请求的路由
+func (r *routerGroup) Delete(name string, handlerFunc HandlerFunc) {
+	r.handle(name, http.MethodDelete, handlerFunc)
+}
+
+// Put 添加一个处理PUT请求的路由
+func (r *routerGroup) Put(name string, handlerFunc HandlerFunc) {
+	r.handle(name, http.MethodPut, handlerFunc)
+}
+
+// Patch 添加一个处理PATCH请求的路由
+func (r *routerGroup) Patch(name string, handlerFunc HandlerFunc) {
+	r.handle(name, http.MethodPatch, handlerFunc)
+}
+
+// Options 添加一个处理OPTIONS请求的路由
+func (r *routerGroup) Options(name string, handlerFunc HandlerFunc) {
+	r.handle(name, http.MethodOptions, handlerFunc)
+}
+
+// Head 添加一个处理HEAD请求的路由
+func (r *routerGroup) Head(name string, handlerFunc HandlerFunc) {
+	r.handle(name, http.MethodHead, handlerFunc)
 }
 
 // routerGroup 代表一个路由组，包含组名和一组处理器函数映射
 type routerGroup struct {
-	groupName        string                 // 路由组的名称
-	handlerMap       map[string]HandlerFunc // 路由和处理器函数的映射
-	handlerMethodMap map[string][]string    // 路由和处理器函数的映射
+	groupName        string                            // 路由组的名称
+	handlerMap       map[string]map[string]HandlerFunc // 路由和处理器函数的映射
+	handlerMethodMap map[string][]string               // 路由和处理器函数的映射
 }
 
 // Add 方法用于向路由组中添加一个新的路由和对应的处理器函数
@@ -84,48 +140,50 @@ func New() *Engine {
 	}
 }
 
-// ServeHTTP 是 Engine 类型的 HTTP 服务处理函数。
-// 它根据请求的 URL 和方法找到并执行相应的处理程序。
+// ServeHTTP是Engine的HTTP服务处理函数。
+// 它根据请求的URL和方法选择相应的处理程序。
+// 参数w用于发送HTTP响应，r包含当前请求的所有信息。
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// 获取所有路由组
+	// 获取所有路由组。
 	groups := e.router.groups
-	// 遍历每个路由组
+	// 遍历每个路由组。
 	for _, g := range groups {
-		// 遍历当前路由组中的所有处理程序映射
-		for name, handle := range g.handlerMap {
-			// 构造完整的 URL 路径
+		// 遍历当前路由组中的所有处理程序映射。
+		for name, methodHandle := range g.handlerMap {
+			// 构建完整的URL路径。
 			url := "/" + g.groupName + name
-			// 如果请求的 URI 与构造的 URL 匹配，则创建上下文并尝试执行处理程序
+			// 检查请求的URL是否与构建的URL匹配。
 			if r.RequestURI == url {
+				// 创建一个Context实例，包含请求和响应写入器。
 				ctx := &Context{
 					W: w,
 					R: r,
 				}
-				// 检查是否有 ANY 方法的处理程序
-				if g.handlerMethodMap["ANY"] != nil {
-					for _, v := range g.handlerMethodMap["ANY"] {
-						if name == v {
-							handle(ctx)
-							return
-						}
-					}
+				// 检查是否有ANY方法处理程序。
+				_, ok := methodHandle[ANY]
+				if ok {
+					// 如果有，执行ANY方法处理程序。
+					methodHandle[ANY](ctx)
+					return
 				}
-				// 获取请求的方法并打印
+				// 获取请求的方法。
 				method := r.Method
 				fmt.Println(method)
-				// 根据请求方法获取对应的处理程序列表
-				routers := g.handlerMethodMap[method]
-				if routers != nil {
-					for _, v := range routers {
-						if name == v {
-							handle(ctx)
-							return
-						}
-					}
+				// 根据请求方法获取相应的处理程序。
+				handler, ok := methodHandle[method]
+				if ok {
+					// 如果找到，执行相应的处理程序。
+					handler(ctx)
+					return
 				}
-				// 如果没有找到允许的方法，返回 405 方法不允许错误
-				w.WriteHeader(405)
+				// 如果没有找到合适的处理程序，发送405方法不允许的响应。
+				w.WriteHeader(http.StatusMethodNotAllowed)
 				fmt.Fprintln(w, method+" not allowed")
+				return
+			} else {
+				// 如果请求的URL与任何路由都不匹配，发送404未找到的响应。
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintln(w, r.RequestURI+" not found")
 				return
 			}
 		}
