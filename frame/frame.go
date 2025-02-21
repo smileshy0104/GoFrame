@@ -87,31 +87,55 @@ func (r *routerGroup) Get(name string, handlerFunc HandlerFunc) {
 }
 
 // Post 添加一个处理POST请求的路由
+// 参数:
+//
+//	name: 路由的名称或路径
+//	handlerFunc: 处理路由请求的处理函数
 func (r *routerGroup) Post(name string, handlerFunc HandlerFunc) {
 	r.handle(name, http.MethodPost, handlerFunc)
 }
 
 // Delete 添加一个处理DELETE请求的路由
+// 参数:
+//
+//	name: 路由的名称或路径
+//	handlerFunc: 处理路由请求的处理函数
 func (r *routerGroup) Delete(name string, handlerFunc HandlerFunc) {
 	r.handle(name, http.MethodDelete, handlerFunc)
 }
 
 // Put 添加一个处理PUT请求的路由
+// 参数:
+//
+//	name: 路由的名称或路径
+//	handlerFunc: 处理路由请求的处理函数
 func (r *routerGroup) Put(name string, handlerFunc HandlerFunc) {
 	r.handle(name, http.MethodPut, handlerFunc)
 }
 
 // Patch 添加一个处理PATCH请求的路由
+// 参数:
+//
+//	name: 路由的名称或路径
+//	handlerFunc: 处理路由请求的处理函数
 func (r *routerGroup) Patch(name string, handlerFunc HandlerFunc) {
 	r.handle(name, http.MethodPatch, handlerFunc)
 }
 
 // Options 添加一个处理OPTIONS请求的路由
+// 参数:
+//
+//	name: 路由的名称或路径
+//	handlerFunc: 处理路由请求的处理函数
 func (r *routerGroup) Options(name string, handlerFunc HandlerFunc) {
 	r.handle(name, http.MethodOptions, handlerFunc)
 }
 
 // Head 添加一个处理HEAD请求的路由
+// 参数:
+//
+//	name: 路由的名称或路径
+//	handlerFunc: 处理路由请求的处理函数
 func (r *routerGroup) Head(name string, handlerFunc HandlerFunc) {
 	r.handle(name, http.MethodHead, handlerFunc)
 }
