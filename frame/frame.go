@@ -15,6 +15,9 @@ const ANY = "ANY"
 // 这种类型通常用于定义路由、中间件等处理程序。
 type HandlerFunc func(ctx *Context)
 
+// MiddlewareFunc 定义了一个中间件函数的类型，它接受一个处理器函数作为参数，并返回一个处理器函数。
+type MiddlewareFunc func(handlerFunc HandlerFunc) HandlerFunc
+
 // Context 是请求处理的上下文，包含了请求和响应的引用。
 // 它提供了一种在请求处理过程中传递请求特定数据、中断请求处理等方式。
 type Context struct {
@@ -26,6 +29,33 @@ type Context struct {
 type router struct {
 	routerGroup []*routerGroup // 路由组的列表
 	engine      *Engine
+}
+
+// routerGroup 代表一个路由组，包含组名和一组处理器函数映射
+type routerGroup struct {
+	groupName          string                                 // 路由组的名称
+	handleFuncMap      map[string]map[string]HandlerFunc      // 路由和处理器函数的映射
+	handlerMethodMap   map[string][]string                    // 路由和处理器函数的映射
+	treeNode           *treeNode                              // 路由树的根节点
+	middlewaresFuncMap map[string]map[string][]MiddlewareFunc // 中间件函数的映射
+	middlewares        []MiddlewareFunc                       // 中间件函数列表
+}
+
+// Add 方法用于向路由组中添加一个新的路由和对应的处理器函数
+//func (r *routerGroup) Add(name string, handlerFunc HandlerFunc) {
+//	r.handlerMap[name] = handlerFunc
+//}
+
+// Engine 是框架的核心结构体，包含一个 router 实例
+type Engine struct {
+	*router // 使用嵌套结构体，将 router 实例作为 Engine 的字段
+}
+
+// New 函数用于创建并返回一个新的 Engine 实例
+func New() *Engine {
+	return &Engine{
+		&router{},
+	}
 }
 
 // Group 方法用于创建一个新的路由组，并将其添加到 router 的 groups 列表中
@@ -60,6 +90,29 @@ func (r *routerGroup) handle(name string, method string, handlerFunc HandlerFunc
 	//methodMap := make(map[string]HandlerFunc)
 	//methodMap[method] = handlerFunc
 	r.treeNode.Put(name)
+}
+
+// Use 方法用于向路由组中添加中间件函数
+func (r *routerGroup) Use(middlewareFunc ...MiddlewareFunc) {
+	r.middlewares = append(r.middlewares, middlewareFunc...)
+}
+
+// methodHandle 方法用于处理路由请求，根据路由名称和HTTP方法调用相应的处理程序。
+func (r *routerGroup) methodHandle(name string, method string, h HandlerFunc, ctx *Context) {
+	//组通用中间件
+	if r.middlewares != nil {
+		for _, middlewareFunc := range r.middlewares {
+			h = middlewareFunc(h)
+		}
+	}
+	//组路由级别
+	middlewareFuncs := r.middlewaresFuncMap[name][method]
+	if middlewareFuncs != nil {
+		for _, middlewareFunc := range middlewareFuncs {
+			h = middlewareFunc(h)
+		}
+	}
+	h(ctx)
 }
 
 // Any 添加一个处理所有HTTP方法的路由
@@ -147,31 +200,6 @@ func (r *routerGroup) Head(name string, handlerFunc HandlerFunc) {
 	r.handle(name, http.MethodHead, handlerFunc)
 }
 
-// routerGroup 代表一个路由组，包含组名和一组处理器函数映射
-type routerGroup struct {
-	groupName        string                            // 路由组的名称
-	handleFuncMap    map[string]map[string]HandlerFunc // 路由和处理器函数的映射
-	handlerMethodMap map[string][]string               // 路由和处理器函数的映射
-	treeNode         *treeNode                         // 路由树的根节点
-}
-
-// Add 方法用于向路由组中添加一个新的路由和对应的处理器函数
-//func (r *routerGroup) Add(name string, handlerFunc HandlerFunc) {
-//	r.handlerMap[name] = handlerFunc
-//}
-
-// Engine 是框架的核心结构体，包含一个 router 实例
-type Engine struct {
-	*router // 使用嵌套结构体，将 router 实例作为 Engine 的字段
-}
-
-// New 函数用于创建并返回一个新的 Engine 实例
-func New() *Engine {
-	return &Engine{
-		&router{},
-	}
-}
-
 // ServeHTTP 实现http.Handler接口，处理HTTP请求并响应路由
 // 参数说明：
 //
@@ -183,6 +211,22 @@ func New() *Engine {
 //  2. 支持通配ANY方法处理
 //  3. 自动处理405/404状态码
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	e.httpRequestHandle(w, r)
+}
+
+// Run 启动 HTTP 服务器，监听指定的端口。
+func (e *Engine) Run() {
+	// 将 Engine 实例注册为 HTTP 服务器的处理程序
+	http.Handle("/", e)
+	// 监听 8111 端口并启动服务器
+	err := http.ListenAndServe(":8111", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+// httpRequestHandle 处理HTTP请求，根据路由匹配规则进行路由处理。
+func (e *Engine) httpRequestHandle(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 	// 遍历所有路由组进行路由匹配
 	for _, group := range e.routerGroup {
@@ -200,14 +244,16 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			// 优先尝试匹配ANY方法处理器
 			handle, ok := group.handleFuncMap[node.routerName][ANY]
 			if ok {
-				handle(ctx)
+				group.methodHandle(node.routerName, ANY, handle, ctx)
+				//handle(ctx)
 				return
 			}
 
 			// 尝试匹配具体HTTP方法处理器
 			handle, ok = group.handleFuncMap[node.routerName][method]
 			if ok {
-				handle(ctx)
+				group.methodHandle(node.routerName, method, handle, ctx)
+				//handle(ctx)
 				return
 			}
 
@@ -221,15 +267,4 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 所有路由组匹配失败时返回404
 	w.WriteHeader(http.StatusNotFound)
 	fmt.Fprintf(w, "%s  not found \n", r.RequestURI)
-}
-
-// Run 启动 HTTP 服务器，监听指定的端口。
-func (e *Engine) Run() {
-	// 将 Engine 实例注册为 HTTP 服务器的处理程序
-	http.Handle("/", e)
-	// 监听 8111 端口并启动服务器
-	err := http.ListenAndServe(":8111", nil)
-	if err != nil {
-		log.Fatal(err)
-	}
 }
