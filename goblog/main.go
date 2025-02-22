@@ -5,11 +5,21 @@ import (
 	"frame"
 )
 
+// Log 中间件
+func Log(next frame.HandlerFunc) frame.HandlerFunc {
+	return func(ctx *frame.Context) {
+		fmt.Println("打印请求参数")
+		next(ctx)
+		fmt.Println("返回执行时间")
+	}
+}
+
 func main() {
 	engine := frame.New()
 	g := engine.Group("user")
 
 	// 使用 Use 方法添加一个中间件，该中间件会在处理请求之前和之后分别执行一些操作。
+	// 通用级别中间件
 	g.Use(func(next frame.HandlerFunc) frame.HandlerFunc {
 		return func(ctx *frame.Context) {
 			fmt.Println("pre handler")
@@ -28,7 +38,7 @@ func main() {
 
 	g.Get("/hello/*/get", func(context *frame.Context) {
 		fmt.Fprintln(context.W, "/hello/*/get test test")
-	})
+	}, Log)
 
 	engine.Run()
 }

@@ -61,10 +61,11 @@ func New() *Engine {
 // Group 方法用于创建一个新的路由组，并将其添加到 router 的 groups 列表中
 func (r *router) Group(name string) *routerGroup {
 	g := &routerGroup{
-		groupName:        name,
-		handleFuncMap:    make(map[string]map[string]HandlerFunc),
-		handlerMethodMap: make(map[string][]string),
-		treeNode:         &treeNode{name: "/", children: make([]*treeNode, 0)}, // 创建一个根节点
+		groupName:          name,
+		handleFuncMap:      make(map[string]map[string]HandlerFunc),
+		handlerMethodMap:   make(map[string][]string),
+		middlewaresFuncMap: make(map[string]map[string][]MiddlewareFunc),
+		treeNode:           &treeNode{name: "/", children: make([]*treeNode, 0)}, // 创建一个根节点
 	}
 	r.routerGroup = append(r.routerGroup, g)
 	return g
@@ -73,18 +74,27 @@ func (r *router) Group(name string) *routerGroup {
 // handle 是一个用于在路由组中注册处理程序的方法。
 // 它接受三个参数：name（路由的名称）、method（HTTP 方法）和 handlerFunc（处理程序）。
 // 该方法的主要作用是将处理程序与路由名称和HTTP方法关联起来，以便正确处理相应的HTTP请求。
-func (r *routerGroup) handle(name string, method string, handlerFunc HandlerFunc) {
+func (r *routerGroup) handle(name string, method string, handlerFunc HandlerFunc, middlewareFunc ...MiddlewareFunc) {
 	// 检查 handleFuncMap 中是否已存在该路由名称。
 	_, ok := r.handleFuncMap[name]
 	// 如果不存在，则创建一个新map，用于存储该路由名称对应的处理程序。
 	if !ok {
 		r.handleFuncMap[name] = make(map[string]HandlerFunc)
+		r.middlewaresFuncMap[name] = make(map[string][]MiddlewareFunc)
+	}
+
+	_, ok = r.handleFuncMap[name][method]
+	if ok {
+		panic("有重复的路由")
 	}
 	// 将处理程序与路由名称和HTTP方法关联起来。
 	r.handleFuncMap[name][method] = handlerFunc
 
 	// 将路由名称添加到 handlerMethodMap 中，以便按HTTP方法进行索引。
-	r.handlerMethodMap[method] = append(r.handlerMethodMap[method], name)
+	//r.handlerMethodMap[method] = append(r.handlerMethodMap[method], name)
+
+	// 添加中间件函数
+	r.middlewaresFuncMap[name][method] = append(r.middlewaresFuncMap[name][method], middlewareFunc...)
 
 	// 创建一个新节点，并将其添加到路由树的根节点下。
 	//methodMap := make(map[string]HandlerFunc)
@@ -99,13 +109,13 @@ func (r *routerGroup) Use(middlewareFunc ...MiddlewareFunc) {
 
 // methodHandle 方法用于处理路由请求，根据路由名称和HTTP方法调用相应的处理程序。
 func (r *routerGroup) methodHandle(name string, method string, h HandlerFunc, ctx *Context) {
-	//组通用中间件
+	//组通用中间件（函数中间件）
 	if r.middlewares != nil {
 		for _, middlewareFunc := range r.middlewares {
 			h = middlewareFunc(h)
 		}
 	}
-	//组路由级别
+	//组路由级别（方法中间件）
 	middlewareFuncs := r.middlewaresFuncMap[name][method]
 	if middlewareFuncs != nil {
 		for _, middlewareFunc := range middlewareFuncs {
@@ -120,8 +130,8 @@ func (r *routerGroup) methodHandle(name string, method string, h HandlerFunc, ct
 //
 //	name: 路由的名称或路径
 //	handlerFunc: 处理路由请求的处理函数
-func (r *routerGroup) Any(name string, handlerFunc HandlerFunc) {
-	r.handle(name, "ANY", handlerFunc)
+func (r *routerGroup) Any(name string, handlerFunc HandlerFunc, middlewareFunc ...MiddlewareFunc) {
+	r.handle(name, "ANY", handlerFunc, middlewareFunc...)
 }
 
 // Handle 添加一个处理特定HTTP方法的路由
@@ -132,9 +142,9 @@ func (r *routerGroup) Any(name string, handlerFunc HandlerFunc) {
 //	handlerFunc: 处理路由请求的处理函数
 //
 // 注意: 会对method的有效性做校验
-func (r *routerGroup) Handle(name string, method string, handlerFunc HandlerFunc) {
+func (r *routerGroup) Handle(name string, method string, handlerFunc HandlerFunc, middlewareFunc ...MiddlewareFunc) {
 	//method有效性做校验
-	r.handle(name, method, handlerFunc)
+	r.handle(name, method, handlerFunc, middlewareFunc...)
 }
 
 // Get 添加一个处理GET请求的路由
@@ -142,8 +152,8 @@ func (r *routerGroup) Handle(name string, method string, handlerFunc HandlerFunc
 //
 //	name: 路由的名称或路径
 //	handlerFunc: 处理路由请求的处理函数
-func (r *routerGroup) Get(name string, handlerFunc HandlerFunc) {
-	r.handle(name, http.MethodGet, handlerFunc)
+func (r *routerGroup) Get(name string, handlerFunc HandlerFunc, middlewareFunc ...MiddlewareFunc) {
+	r.handle(name, http.MethodGet, handlerFunc, middlewareFunc...)
 }
 
 // Post 添加一个处理POST请求的路由
@@ -151,8 +161,8 @@ func (r *routerGroup) Get(name string, handlerFunc HandlerFunc) {
 //
 //	name: 路由的名称或路径
 //	handlerFunc: 处理路由请求的处理函数
-func (r *routerGroup) Post(name string, handlerFunc HandlerFunc) {
-	r.handle(name, http.MethodPost, handlerFunc)
+func (r *routerGroup) Post(name string, handlerFunc HandlerFunc, middlewareFunc ...MiddlewareFunc) {
+	r.handle(name, http.MethodPost, handlerFunc, middlewareFunc...)
 }
 
 // Delete 添加一个处理DELETE请求的路由
@@ -160,8 +170,8 @@ func (r *routerGroup) Post(name string, handlerFunc HandlerFunc) {
 //
 //	name: 路由的名称或路径
 //	handlerFunc: 处理路由请求的处理函数
-func (r *routerGroup) Delete(name string, handlerFunc HandlerFunc) {
-	r.handle(name, http.MethodDelete, handlerFunc)
+func (r *routerGroup) Delete(name string, handlerFunc HandlerFunc, middlewareFunc ...MiddlewareFunc) {
+	r.handle(name, http.MethodDelete, handlerFunc, middlewareFunc...)
 }
 
 // Put 添加一个处理PUT请求的路由
@@ -169,8 +179,8 @@ func (r *routerGroup) Delete(name string, handlerFunc HandlerFunc) {
 //
 //	name: 路由的名称或路径
 //	handlerFunc: 处理路由请求的处理函数
-func (r *routerGroup) Put(name string, handlerFunc HandlerFunc) {
-	r.handle(name, http.MethodPut, handlerFunc)
+func (r *routerGroup) Put(name string, handlerFunc HandlerFunc, middlewareFunc ...MiddlewareFunc) {
+	r.handle(name, http.MethodPut, handlerFunc, middlewareFunc...)
 }
 
 // Patch 添加一个处理PATCH请求的路由
@@ -178,8 +188,8 @@ func (r *routerGroup) Put(name string, handlerFunc HandlerFunc) {
 //
 //	name: 路由的名称或路径
 //	handlerFunc: 处理路由请求的处理函数
-func (r *routerGroup) Patch(name string, handlerFunc HandlerFunc) {
-	r.handle(name, http.MethodPatch, handlerFunc)
+func (r *routerGroup) Patch(name string, handlerFunc HandlerFunc, middlewareFunc ...MiddlewareFunc) {
+	r.handle(name, http.MethodPatch, handlerFunc, middlewareFunc...)
 }
 
 // Options 添加一个处理OPTIONS请求的路由
@@ -187,8 +197,8 @@ func (r *routerGroup) Patch(name string, handlerFunc HandlerFunc) {
 //
 //	name: 路由的名称或路径
 //	handlerFunc: 处理路由请求的处理函数
-func (r *routerGroup) Options(name string, handlerFunc HandlerFunc) {
-	r.handle(name, http.MethodOptions, handlerFunc)
+func (r *routerGroup) Options(name string, handlerFunc HandlerFunc, middlewareFunc ...MiddlewareFunc) {
+	r.handle(name, http.MethodOptions, handlerFunc, middlewareFunc...)
 }
 
 // Head 添加一个处理HEAD请求的路由
@@ -196,8 +206,8 @@ func (r *routerGroup) Options(name string, handlerFunc HandlerFunc) {
 //
 //	name: 路由的名称或路径
 //	handlerFunc: 处理路由请求的处理函数
-func (r *routerGroup) Head(name string, handlerFunc HandlerFunc) {
-	r.handle(name, http.MethodHead, handlerFunc)
+func (r *routerGroup) Head(name string, handlerFunc HandlerFunc, middlewareFunc ...MiddlewareFunc) {
+	r.handle(name, http.MethodHead, handlerFunc, middlewareFunc...)
 }
 
 // ServeHTTP 实现http.Handler接口，处理HTTP请求并响应路由
