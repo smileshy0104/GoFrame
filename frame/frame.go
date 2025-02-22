@@ -18,13 +18,6 @@ type HandlerFunc func(ctx *Context)
 // MiddlewareFunc 定义了一个中间件函数的类型，它接受一个处理器函数作为参数，并返回一个处理器函数。
 type MiddlewareFunc func(handlerFunc HandlerFunc) HandlerFunc
 
-// Context 是请求处理的上下文，包含了请求和响应的引用。
-// 它提供了一种在请求处理过程中传递请求特定数据、中断请求处理等方式。
-type Context struct {
-	W http.ResponseWriter // W 用于向客户端发送响应。
-	R *http.Request       // R 包含了当前请求的所有信息。
-}
-
 // router 是路由管理的结构体，包含一组路由组
 type router struct {
 	routerGroup []*routerGroup // 路由组的列表

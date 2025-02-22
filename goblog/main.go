@@ -40,5 +40,8 @@ func main() {
 		fmt.Fprintln(context.W, "/hello/*/get test test")
 	}, Log)
 
+	g.Get("/html", func(context *frame.Context) {
+		context.HTML(200, "<h1>测试测试</h1>")
+	}, Log)
 	engine.Run()
 }
