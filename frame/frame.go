@@ -191,7 +191,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		// 在路由树中查找匹配的节点
 		node := group.treeNode.Get(routerName)
-		if node != nil {
+		if node != nil && node.isEnd {
 			ctx := &Context{
 				W: w,
 				R: r,
