@@ -273,7 +273,7 @@ func (e *Engine) httpRequestHandle(ctx *Context, w http.ResponseWriter, r *http.
 	// 遍历所有路由组进行路由匹配
 	for _, group := range e.routerGroup {
 		// 从请求URI中提取当前路由组对应的子路由路径
-		routerName := SubStringLast(r.RequestURI, "/"+group.groupName)
+		routerName := SubStringLast(r.URL.Path, "/"+group.groupName)
 
 		// 在路由树中查找匹配的节点
 		node := group.treeNode.Get(routerName)
@@ -296,12 +296,12 @@ func (e *Engine) httpRequestHandle(ctx *Context, w http.ResponseWriter, r *http.
 
 			// 路由存在但方法不匹配时返回405
 			w.WriteHeader(http.StatusMethodNotAllowed)
-			fmt.Fprintf(w, "%s %s not allowed \n", r.RequestURI, method)
+			fmt.Fprintf(w, "%s %s not allowed \n", r.URL.Path, method)
 			return
 		}
 	}
 
 	// 所有路由组匹配失败时返回404
 	w.WriteHeader(http.StatusNotFound)
-	fmt.Fprintf(w, "%s  not found \n", r.RequestURI)
+	fmt.Fprintf(w, "%s  not found \n", r.URL.Path)
 }

@@ -120,5 +120,29 @@ func main() {
 	g.Get("/redirect", func(ctx *frame.Context) {
 		ctx.Redirect(http.StatusMovedPermanently, "https://www.baidu.com")
 	})
+
+	// GetQuery获取请求参数 http://localhost:8111/user/get_query?id=1
+	g.Get("/get_query", func(ctx *frame.Context) {
+		id := ctx.GetQuery("id")
+		fmt.Printf("id: %v , ok: %v \n", id, true)
+	})
+
+	// GetQueryArray获取请求参数 http://localhost:8111/user/get_query_array?id=1&id=2
+	g.Get("/get_query_array", func(ctx *frame.Context) {
+		id, ok := ctx.GetQueryArray("id")
+		fmt.Printf("id: %v , ok: %v \n", id, ok)
+	})
+
+	// GetQueryArray获取请求参数 http://localhost:8111/user/get_default_query?id=1
+	g.Get("/get_default_query", func(ctx *frame.Context) {
+		id := ctx.DefaultQuery("id", "999")
+		fmt.Printf("id: %v  \n", id)
+	})
+
+	// GetQueryMap获取请求参数 http://localhost:8111/user/get_query_map?user[id]=1&user[name]=张三
+	g.Get("/get_query_map", func(ctx *frame.Context) {
+		m, _ := ctx.GetQueryMap("user")
+		ctx.JSON(http.StatusOK, m)
+	})
 	engine.Run()
 }

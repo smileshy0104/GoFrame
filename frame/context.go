@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // Context 是请求处理的上下文，包含了请求和响应的引用。
@@ -15,6 +16,8 @@ type Context struct {
 	R          *http.Request       // R 包含了当前请求的所有信息。
 	engine     *Engine             // engine 是一个指向Engine的指针，用于访问Engine中的HTMLRender。
 	StatusCode int                 // StatusCode 用于记录响应的状态码。
+	queryCache url.Values          // queryCache用于缓存查询参数。
+	formCache  url.Values          // formCache用于缓存表单数据。
 }
 
 // Render函数用于向客户端发送响应，并设置响应的状态码。
@@ -196,4 +199,108 @@ func (c *Context) String(status int, format string, values ...any) (err error) {
 	//return
 
 	return c.Render(status, &render.String{Format: format, Data: values})
+}
+
+// TODO 获取QUERY查询请求 `http://xxx.com/user/add?id=1&age=20&username=张三`
+// initQueryCache 初始化查询缓存，确保queryCache字段被正确设置。
+func (c *Context) initQueryCache() {
+	// 如果queryCache字段为nil，则创建一个新的url.Values对象作为查询缓存。
+	if c.queryCache == nil {
+		if c.R != nil {
+			c.queryCache = c.R.URL.Query()
+		} else {
+			c.queryCache = url.Values{}
+		}
+	}
+}
+
+// GetQueryArray 返回指定键的查询参数值数组及是否存在标志。
+// key: 要检索的查询参数的键。
+func (c *Context) GetQueryArray(key string) (values []string, ok bool) {
+	c.initQueryCache()
+	values, ok = c.queryCache[key]
+	return
+}
+
+// DefaultQuery 返回指定键的查询参数值，如果不存在则返回默认值。
+// key: 要检索的查询参数的键。
+// defaultValue: 如果键不存在时返回的默认值。
+func (c *Context) DefaultQuery(key, defaultValue string) string {
+	array, ok := c.GetQueryArray(key)
+	if !ok {
+		return defaultValue
+	}
+	return array[0]
+}
+
+// GetQuery 返回指定键的单个查询参数值。
+// key: 要检索的查询参数的键。
+func (c *Context) GetQuery(key string) string {
+	c.initQueryCache()
+	return c.queryCache.Get(key)
+}
+
+// QueryArray 返回指定键的查询参数值数组。
+// key: 要检索的查询参数的键。
+func (c *Context) QueryArray(key string) (values []string) {
+	c.initQueryCache()
+	values, _ = c.queryCache[key]
+	return
+}
+
+// TODO 获取QUERYMAP查询请求 `http://localhost:8080/queryMap?user[id]=1&user[name]=张三`
+// QueryMap函数用于获取指定查询参数键对应的值的映射。
+// 主要用于处理查询参数中包含结构的情况，例如：user[id]=1&user[name]=张三。
+// 参数:
+//
+//	key - 查询参数的键名。
+//
+// 返回值:
+//
+//	一个映射，键为结构字段名，值为字段对应的值。
+func (c *Context) QueryMap(key string) (dicts map[string]string) {
+	dicts, _ = c.GetQueryMap(key)
+	return
+}
+
+// GetQueryMap函数用于获取指定查询参数键对应的值的映射，并返回一个布尔值表示键是否存在。
+// 参数:
+//
+//	key - 查询参数的键名。
+//
+// 返回值:
+//
+//	一个映射，键为结构字段名，值为字段对应的值。
+//	一个布尔值，表示指定的键是否存在于查询参数中。
+func (c *Context) GetQueryMap(key string) (map[string]string, bool) {
+	c.initQueryCache()
+	return c.get(c.queryCache, key)
+}
+
+// get函数用于从map中获取指定键对应的值，并返回一个布尔值表示键是否存在。
+// 参数:
+//
+//	m - 一个映射，存储了查询参数的键值对，其中键是查询参数的完整键名（包含结构字段名），值是字段对应的值。
+//	key - 查询参数的键名。
+//
+// 返回值:
+//
+//	一个映射，键为结构字段名，值为字段对应的值。
+//	一个布尔值，表示指定的键是否存在于查询参数中。
+func (c *Context) get(m map[string][]string, key string) (map[string]string, bool) {
+	dicts := make(map[string]string)
+	exist := false
+	// 遍历查询参数映射，查找包含指定键的键值对。
+	for k, value := range m {
+		// 如果键以"["开头，则表示键值对包含结构字段名。
+		if i := strings.IndexByte(k, '['); i >= 1 && k[0:i] == key {
+			// 如果键以"]"结尾，则表示键值对包含字段名。
+			if j := strings.IndexByte(k[i+1:], ']'); j >= 1 {
+				// 从键中提取字段名，并将其添加到映射中。
+				exist = true
+				dicts[k[i+1:][:j]] = value[0]
+			}
+		}
+	}
+	return dicts, exist
 }
