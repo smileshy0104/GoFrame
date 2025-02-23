@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"sync"
 )
 
 const ANY = "ANY"
@@ -46,17 +47,25 @@ type Engine struct {
 	*router                      // 使用嵌套结构体，将 router 实例作为 Engine 的字段
 	funcMap    template.FuncMap  // 模板函数
 	HTMLRender render.HTMLRender // HTML 渲染器
+	pool       sync.Pool         // 线程池
 }
 
 // New 函数用于创建并返回一个新的 Engine 实例
 func New() *Engine {
-	return &Engine{
-		&router{},
-		template.FuncMap{},
-		render.HTMLRender{
-			Template: template.New(""),
-		},
+	engine := &Engine{
+		router:     &router{},
+		funcMap:    nil,
+		HTMLRender: render.HTMLRender{},
 	}
+	engine.pool.New = func() any {
+		return engine.allocateContext()
+	}
+	return engine
+}
+
+// allocateContext 方法用于从线程池中获取一个Context实例，并将其初始化为一个新的Context实例。
+func (e *Engine) allocateContext() any {
+	return &Context{engine: e}
 }
 
 // SetFuncMap 方法用于设置模板函数
@@ -239,7 +248,12 @@ func (r *routerGroup) Head(name string, handlerFunc HandlerFunc, middlewareFunc 
 //  2. 支持通配ANY方法处理
 //  3. 自动处理405/404状态码
 func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	e.httpRequestHandle(w, r)
+	// 从对象池中获取一个Context实例
+	ctx := e.pool.Get().(*Context)
+	ctx.W = w
+	ctx.R = r
+	e.httpRequestHandle(ctx, w, r)
+	e.pool.Put(ctx)
 }
 
 // Run 启动 HTTP 服务器，监听指定的端口。
@@ -254,7 +268,7 @@ func (e *Engine) Run() {
 }
 
 // httpRequestHandle 处理HTTP请求，根据路由匹配规则进行路由处理。
-func (e *Engine) httpRequestHandle(w http.ResponseWriter, r *http.Request) {
+func (e *Engine) httpRequestHandle(ctx *Context, w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 	// 遍历所有路由组进行路由匹配
 	for _, group := range e.routerGroup {
@@ -264,12 +278,6 @@ func (e *Engine) httpRequestHandle(w http.ResponseWriter, r *http.Request) {
 		// 在路由树中查找匹配的节点
 		node := group.treeNode.Get(routerName)
 		if node != nil && node.isEnd {
-			ctx := &Context{
-				W:      w,
-				R:      r,
-				engine: e,
-			}
-
 			// 优先尝试匹配ANY方法处理器
 			handle, ok := group.handleFuncMap[node.routerName][ANY]
 			if ok {
