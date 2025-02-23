@@ -2,6 +2,8 @@ package frame
 
 import (
 	"fmt"
+	"frame/render"
+	"html/template"
 	"log"
 	"net/http"
 )
@@ -41,14 +43,37 @@ type routerGroup struct {
 
 // Engine 是框架的核心结构体，包含一个 router 实例
 type Engine struct {
-	*router // 使用嵌套结构体，将 router 实例作为 Engine 的字段
+	*router                      // 使用嵌套结构体，将 router 实例作为 Engine 的字段
+	funcMap    template.FuncMap  // 模板函数
+	HTMLRender render.HTMLRender // HTML 渲染器
 }
 
 // New 函数用于创建并返回一个新的 Engine 实例
 func New() *Engine {
 	return &Engine{
 		&router{},
+		template.FuncMap{},
+		render.HTMLRender{
+			Template: template.New(""),
+		},
 	}
+}
+
+// SetFuncMap 方法用于设置模板函数
+func (e *Engine) SetFuncMap(funcMap template.FuncMap) {
+	e.funcMap = funcMap
+}
+
+// LoadTemplateGlob 加载所有模板
+func (e *Engine) LoadTemplateGlob(pattern string) {
+	// 使用模板函数和模板文件路径创建一个模板对象，并将其设置为框架的模板渲染器。
+	t := template.Must(template.New("").Funcs(e.funcMap).ParseGlob(pattern))
+	e.SetHtmlTemplate(t)
+}
+
+// SetHtmlTemplate 方法用于设置HTML渲染器
+func (e *Engine) SetHtmlTemplate(t *template.Template) {
+	e.HTMLRender = render.HTMLRender{Template: t}
 }
 
 // Group 方法用于创建一个新的路由组，并将其添加到 router 的 groups 列表中
@@ -240,8 +265,9 @@ func (e *Engine) httpRequestHandle(w http.ResponseWriter, r *http.Request) {
 		node := group.treeNode.Get(routerName)
 		if node != nil && node.isEnd {
 			ctx := &Context{
-				W: w,
-				R: r,
+				W:      w,
+				R:      r,
+				engine: e,
 			}
 
 			// 优先尝试匹配ANY方法处理器

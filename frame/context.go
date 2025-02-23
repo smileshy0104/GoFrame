@@ -9,8 +9,9 @@ import (
 // Context 是请求处理的上下文，包含了请求和响应的引用。
 // 它提供了一种在请求处理过程中传递请求特定数据、中断请求处理等方式。
 type Context struct {
-	W http.ResponseWriter // W 用于向客户端发送响应。
-	R *http.Request       // R 包含了当前请求的所有信息。
+	W      http.ResponseWriter // W 用于向客户端发送响应。
+	R      *http.Request       // R 包含了当前请求的所有信息。
+	engine *Engine             // engine 是一个指向Engine的指针，用于访问Engine中的HTMLRender。
 }
 
 // HTML函数用于向客户端发送HTML格式的响应。
@@ -69,4 +70,14 @@ func (c *Context) HTMLTemplateGlob(name string, funcMap template.FuncMap, patter
 	if err != nil {
 		log.Println(err)
 	}
+}
+
+// Template函数用于通过指定的模板文件生成HTML响应。
+func (c *Context) Template(name string, data any) error {
+	c.W.Header().Set("Content-Type", "text/html; charset=utf-8")
+	err := c.engine.HTMLRender.Template.ExecuteTemplate(c.W, name, data)
+	if err != nil {
+		return err
+	}
+	return nil
 }

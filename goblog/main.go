@@ -67,5 +67,17 @@ func main() {
 		// 匹配所有以.html结尾的文件
 		context.HTMLTemplateGlob("login.html", nil, "tpl/*.html", user)
 	}, Log)
+
+	// 提前加载模板
+	engine.LoadTemplateGlob("tpl/*.html")
+
+	// 模板渲染
+	g.Get("/template", func(context *frame.Context) {
+		user := User{Name: "yyds"}
+		err := context.Template("login.html", user)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}, Log)
 	engine.Run()
 }
