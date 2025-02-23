@@ -157,5 +157,17 @@ func main() {
 		m, _ := ctx.GetPostFormMap("user") // 单个获取
 		ctx.JSON(http.StatusOK, m)
 	})
+
+	// FormFiles获取请求参数 通过form-data输入
+	g.Post("/form_post_file", func(ctx *frame.Context) {
+		files := ctx.FormFiles("file")
+		for _, file := range files {
+			err := ctx.SaveUploadedFile(file, "./upload/"+file.Filename)
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+		ctx.JSON(http.StatusOK, "上传成功！")
+	})
 	engine.Run()
 }

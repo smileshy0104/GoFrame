@@ -4,9 +4,12 @@ import (
 	"errors"
 	"frame/render"
 	"html/template"
+	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 )
 
@@ -359,4 +362,62 @@ func (c *Context) GetPostFormMap(key string) (map[string]string, bool) {
 func (c *Context) PostFormMap(key string) (dicts map[string]string) {
 	dicts, _ = c.GetPostFormMap(key)
 	return
+}
+
+// FormFile 通过表单字段名称获取上传的文件头信息。
+// 参数 name: 表单字段名称。
+// 返回值 *multipart.FileHeader: 文件头信息，包含文件的名称、大小和类型等。
+func (c *Context) FormFile(name string) *multipart.FileHeader {
+	// 获取通过表单字段上传的文件头信息。
+	file, header, err := c.R.FormFile(name)
+	if err != nil {
+		log.Println(err)
+	}
+	// 关闭文件流。
+	defer file.Close()
+	return header
+}
+
+// FormFiles 获取通过表单字段上传的多个文件的头信息。
+// 参数 name: 表单字段名称。
+// 返回值 []*multipart.FileHeader: 文件头信息的切片，包含所有上传文件的名称、大小和类型等。
+func (c *Context) FormFiles(name string) []*multipart.FileHeader {
+	// 获取通过表单字段上传的多个文件的头信息。
+	multipartForm, err := c.MultipartForm()
+	if err != nil {
+		return make([]*multipart.FileHeader, 0)
+	}
+	// 返回所有上传文件的头信息。
+	return multipartForm.File[name]
+}
+
+// SaveUploadedFile 将上传的文件保存到指定路径。
+// 参数 file: 文件头信息，包含待保存文件的名称、大小和类型等。
+// 参数 dst: 文件保存的目标路径。
+// 返回值 error: 保存过程中遇到的错误，如果没有错误则返回nil。
+func (c *Context) SaveUploadedFile(file *multipart.FileHeader, dst string) error {
+	// 将上传的文件保存到指定路径。
+	src, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	// 创建目标路径的文件。
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	// 将源文件内容复制到目标文件中。
+	_, err = io.Copy(out, src)
+	return err
+}
+
+// MultipartForm 解析请求中的multipart/form-data，以便处理文件上传。
+// 返回值 *multipart.Form: 解析后的multipart表单。
+// 返回值 error: 解析过程中遇到的错误，如果没有错误则返回nil。
+func (c *Context) MultipartForm() (*multipart.Form, error) {
+	// 解析请求中的multipart/form-data，以便处理文件上传。
+	err := c.R.ParseMultipartForm(defaultMultipartMemory)
+	return c.R.MultipartForm, err
 }
