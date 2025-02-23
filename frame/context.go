@@ -2,9 +2,11 @@ package frame
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"html/template"
 	"log"
 	"net/http"
+	"net/url"
 )
 
 // Context 是请求处理的上下文，包含了请求和响应的引用。
@@ -96,4 +98,44 @@ func (c *Context) JSON(status int, data any) error {
 		return err
 	}
 	return nil
+}
+
+// XML函数用于向客户端发送XML格式的响应。
+func (c *Context) XML(status int, data any) error {
+	header := c.W.Header()
+	header["Content-Type"] = []string{"application/xml; charset=utf-8"}
+	c.W.WriteHeader(status)
+	err := xml.NewEncoder(c.W).Encode(data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// File函数用于将指定文件发送给客户端。
+func (c *Context) File(fileName string) {
+	// ServeFile函数用于将指定文件发送给客户端。
+	http.ServeFile(c.W, c.R, fileName)
+}
+
+// FileAttachment函数用于将指定文件作为附件发送给客户端。(指定文件名字)
+func (c *Context) FileAttachment(filepath, filename string) {
+	if isASCII(filename) {
+		// 设置Content-Disposition头，指定附件的名称。
+		c.W.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+	} else {
+		c.W.Header().Set("Content-Disposition", `attachment; filename*=UTF-8''`+url.QueryEscape(filename))
+	}
+	http.ServeFile(c.W, c.R, filepath)
+}
+
+// filepath 是相对文件系统的路径（从对应文件系统目录获取文件）
+func (c *Context) FileFromFS(filepath string, fs http.FileSystem) {
+	defer func(old string) {
+		c.R.URL.Path = old
+	}(c.R.URL.Path)
+
+	c.R.URL.Path = filepath
+
+	http.FileServer(fs).ServeHTTP(c.W, c.R)
 }

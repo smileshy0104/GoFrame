@@ -84,8 +84,31 @@ func main() {
 	// JSON渲染
 	g.Get("/json", func(ctx *frame.Context) {
 		_ = ctx.JSON(http.StatusOK, &User{
-			Name: "go微服务框架",
+			Name: "Json渲染测试",
 		})
+	})
+
+	// XML渲染
+	g.Get("/xml", func(ctx *frame.Context) {
+		_ = ctx.XML(http.StatusOK, &User{
+			Name: "XML渲染测试",
+		})
+	})
+
+	// 文件渲染(默认文件名)
+	g.Get("/excel", func(ctx *frame.Context) {
+		ctx.File("tpl/test.xlsx")
+	})
+
+	// 文件渲染(指定文件名)
+	g.Get("/excelName", func(ctx *frame.Context) {
+		ctx.FileAttachment("tpl/test.xlsx", "指定文件名称.xlsx")
+	})
+
+	// 文件渲染(指定文件目录)
+	g.Get("/excelFs", func(ctx *frame.Context) {
+		//ctx.FileAttachment("tpl/test.xlsx", "哈哈.xlsx")
+		ctx.FileFromFS("test1.xlsx", http.Dir("tpl"))
 	})
 	engine.Run()
 }
