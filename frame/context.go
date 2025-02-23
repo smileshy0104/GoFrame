@@ -1,6 +1,7 @@
 package frame
 
 import (
+	"errors"
 	"frame/render"
 	"html/template"
 	"log"
@@ -8,6 +9,9 @@ import (
 	"net/url"
 	"strings"
 )
+
+// defaultMultipartMemory是multipart/form-data请求的最大内存限制，单位为字节。
+const defaultMultipartMemory = 32 << 20 //32M
 
 // Context 是请求处理的上下文，包含了请求和响应的引用。
 // 它提供了一种在请求处理过程中传递请求特定数据、中断请求处理等方式。
@@ -303,4 +307,56 @@ func (c *Context) get(m map[string][]string, key string) (map[string]string, boo
 		}
 	}
 	return dicts, exist
+}
+
+// initFormCache 初始化表单缓存。该方法确保每个请求只解析一次表单数据。
+func (c *Context) initFormCache() {
+	// 如果表单缓存为nil，则创建一个新的url.Values对象作为表单缓存。
+	if c.formCache == nil {
+		c.formCache = make(url.Values)
+		req := c.R
+		// 解析表单数据，如果出现错误且不是ErrNotMultipart错误，则记录错误信息。
+		if err := req.ParseMultipartForm(defaultMultipartMemory); err != nil {
+			if !errors.Is(err, http.ErrNotMultipart) {
+				log.Println(err)
+			}
+		}
+		// 将解析后的表单数据赋值给表单缓存。
+		c.formCache = c.R.PostForm
+	}
+}
+
+// GetPostForm 获取POST表单中指定键的第一个值。
+func (c *Context) GetPostForm(key string) (string, bool) {
+	// 获取POST表单中指定键的第一个值，并返回一个布尔值表示键是否存在。
+	if values, ok := c.GetPostFormArray(key); ok {
+		return values[0], ok
+	}
+	return "", false
+}
+
+// PostFormArray 以切片形式获取POST表单中指定键的值。
+func (c *Context) PostFormArray(key string) (values []string) {
+	// 以切片形式获取POST表单中指定键的值。
+	values, _ = c.GetPostFormArray(key)
+	return
+}
+
+// GetPostFormArray 获取POST表单中指定键的值切片。
+func (c *Context) GetPostFormArray(key string) (values []string, ok bool) {
+	c.initFormCache()
+	values, ok = c.formCache[key]
+	return
+}
+
+// GetPostFormMap 获取POST表单中指定键的值映射。
+func (c *Context) GetPostFormMap(key string) (map[string]string, bool) {
+	c.initFormCache()
+	return c.get(c.formCache, key)
+}
+
+// PostFormMap 以映射形式获取POST表单中指定键的值。
+func (c *Context) PostFormMap(key string) (dicts map[string]string) {
+	dicts, _ = c.GetPostFormMap(key)
+	return
 }

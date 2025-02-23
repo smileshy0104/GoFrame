@@ -144,5 +144,18 @@ func main() {
 		m, _ := ctx.GetQueryMap("user")
 		ctx.JSON(http.StatusOK, m)
 	})
+
+	// GetPostForm/GetPostFormArray获取请求参数 通过form-data输入
+	g.Post("/form_post", func(ctx *frame.Context) {
+		//m, _ := ctx.GetPostForm("user") // 单个获取
+		m, _ := ctx.GetPostFormArray("user")
+		ctx.JSON(http.StatusOK, m)
+	})
+
+	// GetPostFormMap获取请求参数 通过form-data输入 user[id]=1&user[name]=张三
+	g.Post("/form_post_map", func(ctx *frame.Context) {
+		m, _ := ctx.GetPostFormMap("user") // 单个获取
+		ctx.JSON(http.StatusOK, m)
+	})
 	engine.Run()
 }
