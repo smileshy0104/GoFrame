@@ -86,12 +86,21 @@ func (c *Context) HTMLTemplateGlob(name string, funcMap template.FuncMap, patter
 
 // Template函数用于通过指定的模板文件生成HTML响应。
 func (c *Context) Template(name string, data any) error {
-	c.W.Header().Set("Content-Type", "text/html; charset=utf-8")
-	err := c.engine.HTMLRender.Template.ExecuteTemplate(c.W, name, data)
-	if err != nil {
-		return err
-	}
-	return nil
+	// TODO 未进行封装的版本
+	//c.W.Header().Set("Content-Type", "text/html; charset=utf-8")
+	//err := c.engine.HTMLRender.Template.ExecuteTemplate(c.W, name, data)
+	//if err != nil {
+	//	return err
+	//}
+	//return nil
+
+	//状态是200 默认不设置的话 如果调用了 write这个方法 实际上默认返回状态 200
+	return c.Render(http.StatusOK, &render.HTML{
+		Data:       data,
+		IsTemplate: true,
+		Template:   c.engine.HTMLRender.Template,
+		Name:       name,
+	})
 }
 
 // JSON函数用于向客户端发送JSON格式的响应。
