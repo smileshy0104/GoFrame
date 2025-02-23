@@ -95,6 +95,11 @@ func main() {
 		})
 	})
 
+	// String渲染
+	g.Get("/string", func(ctx *frame.Context) {
+		ctx.String(http.StatusOK, "%s 渲染 %s \n", "string", "go微服务框架")
+	})
+
 	// 文件渲染(默认文件名)
 	g.Get("/excel", func(ctx *frame.Context) {
 		ctx.File("tpl/test.xlsx")
@@ -109,6 +114,11 @@ func main() {
 	g.Get("/excelFs", func(ctx *frame.Context) {
 		//ctx.FileAttachment("tpl/test.xlsx", "哈哈.xlsx")
 		ctx.FileFromFS("test1.xlsx", http.Dir("tpl"))
+	})
+
+	// 页面重定向
+	g.Get("/redirect", func(ctx *frame.Context) {
+		ctx.Redirect(http.StatusMovedPermanently, "https://www.baidu.com")
 	})
 	engine.Run()
 }
