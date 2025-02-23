@@ -29,14 +29,19 @@ func (c *Context) HTML(status int, html string) {
 // 参数name是模板的名称，funcMap是模板函数映射，
 // data是传递给模板的数据，fileName是可变参数，包含一个或多个模板文件的路径。
 func (c *Context) HTMLTemplate(name string, funcMap template.FuncMap, data any, fileName ...string) {
+	// 创建一个模板，并设置模板函数
 	t := template.New(name)
+	// 设置模板函数
 	t.Funcs(funcMap)
+	// 通过文件名解析模板文件
 	t, err := t.ParseFiles(fileName...)
 	if err != nil {
 		log.Println(err)
 		return
 	}
+	// 设置响应头，并执行模板渲染
 	c.W.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// 执行模板渲染
 	err = t.Execute(c.W, data)
 	if err != nil {
 		log.Println(err)
@@ -47,14 +52,19 @@ func (c *Context) HTMLTemplate(name string, funcMap template.FuncMap, data any, 
 // 参数name是模板的名称，funcMap是模板函数映射，
 // pattern是指定模板文件的模式字符串，data是传递给模板的数据。
 func (c *Context) HTMLTemplateGlob(name string, funcMap template.FuncMap, pattern string, data any) {
+	// 创建一个模板，并设置模板函数
 	t := template.New(name)
+	// 设置模板函数
 	t.Funcs(funcMap)
+	// 通过匹配模式解析模板文件
 	t, err := t.ParseGlob(pattern)
 	if err != nil {
 		log.Println(err)
 		return
 	}
+	// 设置响应头，并执行模板渲染
 	c.W.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// 执行模板渲染
 	err = t.Execute(c.W, data)
 	if err != nil {
 		log.Println(err)

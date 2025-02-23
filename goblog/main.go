@@ -5,6 +5,14 @@ import (
 	"frame"
 )
 
+// User 结构体
+type User struct {
+	Name      string   `xml:"name" json:"name" msgo:"required"`
+	Age       int      `xml:"age" json:"age" validate:"required,max=50,min=18"`
+	Addresses []string `json:"addresses"`
+	Email     string   `json:"email" msgo:"required"`
+}
+
 // Log 中间件
 func Log(next frame.HandlerFunc) frame.HandlerFunc {
 	return func(ctx *frame.Context) {
@@ -42,6 +50,22 @@ func main() {
 
 	g.Get("/html", func(context *frame.Context) {
 		context.HTML(200, "<h1>测试测试</h1>")
+	}, Log)
+
+	// TODO 页面渲染相关代码
+	g.Get("/htmlTemplate", func(context *frame.Context) {
+		context.HTMLTemplate("index.html", nil, "", "tpl/index.html")
+	}, Log)
+
+	g.Get("/htmlTemplate1", func(context *frame.Context) {
+		user := User{Name: "yyds"}
+		context.HTMLTemplate("login.html", nil, user, "tpl/login.html", "tpl/header.html")
+	}, Log)
+
+	g.Get("/htmlTemplateGlob", func(context *frame.Context) {
+		user := User{Name: "yyds"}
+		// 匹配所有以.html结尾的文件
+		context.HTMLTemplateGlob("login.html", nil, "tpl/*.html", user)
 	}, Log)
 	engine.Run()
 }
