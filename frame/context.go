@@ -1,6 +1,7 @@
 package frame
 
 import (
+	"encoding/json"
 	"html/template"
 	"log"
 	"net/http"
@@ -76,6 +77,21 @@ func (c *Context) HTMLTemplateGlob(name string, funcMap template.FuncMap, patter
 func (c *Context) Template(name string, data any) error {
 	c.W.Header().Set("Content-Type", "text/html; charset=utf-8")
 	err := c.engine.HTMLRender.Template.ExecuteTemplate(c.W, name, data)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// JSON函数用于向客户端发送JSON格式的响应。
+func (c *Context) JSON(status int, data any) error {
+	c.W.Header().Set("Content-Type", "application/json; charset=utf-8")
+	c.W.WriteHeader(status)
+	rsp, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+	_, err = c.W.Write(rsp)
 	if err != nil {
 		return err
 	}

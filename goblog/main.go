@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"frame"
+	"net/http"
 )
 
 // User 结构体
@@ -79,5 +80,12 @@ func main() {
 			fmt.Println(err)
 		}
 	}, Log)
+
+	// JSON渲染
+	g.Get("/json", func(ctx *frame.Context) {
+		_ = ctx.JSON(http.StatusOK, &User{
+			Name: "go微服务框架",
+		})
+	})
 	engine.Run()
 }
