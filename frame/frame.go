@@ -21,6 +21,9 @@ type HandlerFunc func(ctx *Context)
 // MiddlewareFunc 定义了一个中间件函数的类型，它接受一个处理器函数作为参数，并返回一个处理器函数。
 type MiddlewareFunc func(handlerFunc HandlerFunc) HandlerFunc
 
+// ErrorHandler 定义了一个错误处理函数的类型，它接收一个错误作为参数，并返回一个HTTP状态码和响应数据。
+type ErrorHandler func(err error) (int, any)
+
 // router 是路由管理的结构体，包含一组路由组
 type router struct {
 	routerGroup []*routerGroup // 路由组的列表
@@ -44,10 +47,11 @@ type routerGroup struct {
 
 // Engine 是框架的核心结构体，包含一个 router 实例
 type Engine struct {
-	*router                      // 使用嵌套结构体，将 router 实例作为 Engine 的字段
-	funcMap    template.FuncMap  // 模板函数
-	HTMLRender render.HTMLRender // HTML 渲染器
-	pool       sync.Pool         // 线程池
+	*router                        // 使用嵌套结构体，将 router 实例作为 Engine 的字段
+	funcMap      template.FuncMap  // 模板函数
+	HTMLRender   render.HTMLRender // HTML 渲染器
+	pool         sync.Pool         // 线程池
+	errorHandler ErrorHandler
 }
 
 // New 函数用于创建并返回一个新的 Engine 实例

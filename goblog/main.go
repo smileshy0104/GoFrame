@@ -3,15 +3,16 @@ package main
 import (
 	"fmt"
 	"frame"
+	"log"
 	"net/http"
 )
 
 // User 结构体
 type User struct {
-	Name      string   `xml:"name" json:"name" msgo:"required"`
+	Name      string   `xml:"name" json:"name" binding:"required"`
 	Age       int      `xml:"age" json:"age" validate:"required,max=50,min=18"`
 	Addresses []string `json:"addresses"`
-	Email     string   `json:"email" msgo:"required"`
+	Email     string   `json:"email" binding:"required"`
 }
 
 // Log 中间件
@@ -168,6 +169,19 @@ func main() {
 			}
 		}
 		ctx.JSON(http.StatusOK, "上传成功！")
+	})
+
+	// JSON参数绑定
+	g.Post("/jsonParam", func(ctx *frame.Context) {
+		user := make([]User, 0)
+		ctx.DisallowUnknownFields = true
+		//ctx.IsValidate = true
+		err := ctx.BindJson(&user)
+		if err == nil {
+			ctx.JSON(http.StatusOK, user)
+		} else {
+			log.Println(err)
+		}
 	})
 	engine.Run()
 }

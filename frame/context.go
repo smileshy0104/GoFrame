@@ -2,6 +2,7 @@ package frame
 
 import (
 	"errors"
+	"frame/binding"
 	"frame/render"
 	"html/template"
 	"io"
@@ -19,12 +20,15 @@ const defaultMultipartMemory = 32 << 20 //32M
 // Context 是请求处理的上下文，包含了请求和响应的引用。
 // 它提供了一种在请求处理过程中传递请求特定数据、中断请求处理等方式。
 type Context struct {
-	W          http.ResponseWriter // W 用于向客户端发送响应。
-	R          *http.Request       // R 包含了当前请求的所有信息。
-	engine     *Engine             // engine 是一个指向Engine的指针，用于访问Engine中的HTMLRender。
-	StatusCode int                 // StatusCode 用于记录响应的状态码。
-	queryCache url.Values          // queryCache用于缓存查询参数。
-	formCache  url.Values          // formCache用于缓存表单数据。
+	W                     http.ResponseWriter // W 用于向客户端发送响应。
+	R                     *http.Request       // R 包含了当前请求的所有信息。
+	engine                *Engine             // engine 是一个指向Engine的指针，用于访问Engine中的HTMLRender。
+	StatusCode            int                 // StatusCode 用于记录响应的状态码。
+	queryCache            url.Values          // queryCache用于缓存查询参数。
+	formCache             url.Values          // formCache用于缓存表单数据。
+	DisallowUnknownFields bool                // DisallowUnknownFields用于设置是否允许未知字段。
+	IsValidate            bool                // 是否进行验证
+	sameSite              http.SameSite       // SameSite用于设置Cookie的SameSite属性。
 }
 
 // Render函数用于向客户端发送响应，并设置响应的状态码。
@@ -420,4 +424,74 @@ func (c *Context) MultipartForm() (*multipart.Form, error) {
 	// 解析请求中的multipart/form-data，以便处理文件上传。
 	err := c.R.ParseMultipartForm(defaultMultipartMemory)
 	return c.R.MultipartForm, err
+}
+
+// BindJson 将请求体中的JSON数据绑定到指定的对象。它通过设置JSON绑定器以不允许未知字段并启用验证来解析JSON。
+func (c *Context) BindJson(obj any) error {
+	// 使用JSON绑定器解析请求体中的JSON数据，并绑定到指定的对象。
+	json := binding.JSON
+	// 设置不允许未知字段和启用验证。
+	json.DisallowUnknownFields = true
+	// 设置是否启用验证。
+	json.IsValidate = true
+	return c.MustBindWith(obj, json)
+}
+
+// BindXML 将请求体中的XML数据绑定到指定的对象。
+func (c *Context) BindXML(obj any) error {
+	return c.MustBindWith(obj, binding.XML)
+}
+
+// MustBindWith 使用指定的绑定器将请求数据绑定到对象。如果绑定失败，它会返回400错误。
+func (c *Context) MustBindWith(obj any, bind binding.Binding) error {
+	// 使用指定的绑定器将请求数据绑定到对象。
+	if err := c.ShouldBind(obj, bind); err != nil {
+		// 如果绑定失败，则返回400错误。
+		c.W.WriteHeader(http.StatusBadRequest)
+		return err
+	}
+	return nil
+}
+
+// ShouldBind 使用指定的绑定器尝试将请求数据绑定到对象，并返回任何绑定错误。
+func (c *Context) ShouldBind(obj any, bind binding.Binding) error {
+	// 使用指定的绑定器尝试将请求数据绑定到对象，并返回任何绑定错误。
+	return bind.Bind(c.R, obj)
+}
+
+// Fail 发送一个失败的响应，包含指定的状态码和消息。
+func (c *Context) Fail(code int, msg string) {
+	c.String(code, msg)
+}
+
+// HandleWithError 处理响应，如果存在错误，则使用错误处理器处理；否则，发送带有状态码和对象的响应。
+func (c *Context) HandleWithError(statusCode int, obj any, err error) {
+	if err != nil {
+		code, data := c.engine.errorHandler(err)
+		c.JSON(code, data)
+		return
+	}
+	c.JSON(statusCode, obj)
+}
+
+// SetCookie 在响应中设置一个cookie。
+func (c *Context) SetCookie(name, value string, maxAge int, path, domain string, secure, httpOnly bool) {
+	if path == "" {
+		path = "/"
+	}
+	http.SetCookie(c.W, &http.Cookie{
+		Name:     name,
+		Value:    url.QueryEscape(value),
+		MaxAge:   maxAge,
+		Path:     path,
+		Domain:   domain,
+		SameSite: c.sameSite,
+		Secure:   secure,
+		HttpOnly: httpOnly,
+	})
+}
+
+// GetHeader 从请求中获取指定的头信息。
+func (c *Context) GetHeader(key string) string {
+	return c.R.Header.Get(key)
 }
