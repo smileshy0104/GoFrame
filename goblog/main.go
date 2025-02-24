@@ -38,6 +38,9 @@ func main() {
 		}
 	})
 
+	// 通用级别中间件（日志中间件）
+	g.Use(frame.Logging)
+
 	g.Get("/hello", func(context *frame.Context) {
 		fmt.Fprintln(context.W, "GET test test")
 	})
@@ -197,7 +200,7 @@ func main() {
 	*/
 	g.Post("/jsonParam", func(ctx *frame.Context) {
 		user := make([]User, 0)
-		ctx.DisallowUnknownFields = true
+		//ctx.DisallowUnknownFields = true
 		//ctx.IsValidate = true
 		err := ctx.BindJson(&user)
 		if err == nil {

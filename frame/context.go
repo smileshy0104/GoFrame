@@ -438,7 +438,7 @@ func (c *Context) BindJson(obj any) error {
 	return c.MustBindWith(obj, json)
 }
 
-// DealJson 解析请求体中的JSON数据并将其存储在传入的数据结构中。
+// DealJson 解析请求体中的JSON数据并将其存储在传入的数据结构中。（未封装的Json处理器）
 func (c *Context) DealJson(data any) error {
 	// 获取请求体
 	body := c.R.Body
