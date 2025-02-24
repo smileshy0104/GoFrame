@@ -1,6 +1,7 @@
 package frame
 
 import (
+	"encoding/json"
 	"errors"
 	"frame/binding"
 	"frame/render"
@@ -435,6 +436,20 @@ func (c *Context) BindJson(obj any) error {
 	// 设置是否启用验证。
 	json.IsValidate = true
 	return c.MustBindWith(obj, json)
+}
+
+// DealJson 解析请求体中的JSON数据并将其存储在传入的数据结构中。
+func (c *Context) DealJson(data any) error {
+	// 获取请求体
+	body := c.R.Body
+	// 检查请求和请求体是否有效
+	if c.R == nil || body == nil {
+		return errors.New("invalid request")
+	}
+	// 创建一个JSON解码器
+	decoder := json.NewDecoder(body)
+	// 使用解码器将JSON数据解析到传入的数据结构中
+	return decoder.Decode(data)
 }
 
 // BindXML 将请求体中的XML数据绑定到指定的对象。

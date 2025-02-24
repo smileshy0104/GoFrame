@@ -171,6 +171,16 @@ func main() {
 		ctx.JSON(http.StatusOK, "上传成功！")
 	})
 
+	g.Post("/jsonParam0", func(ctx *frame.Context) {
+		user := &User{}
+		err := ctx.DealJson(user)
+		if err == nil {
+			ctx.JSON(http.StatusOK, user)
+		} else {
+			log.Println(err)
+		}
+	})
+
 	// JSON参数绑定
 	g.Post("/jsonParam", func(ctx *frame.Context) {
 		user := make([]User, 0)
@@ -183,5 +193,17 @@ func main() {
 			log.Println(err)
 		}
 	})
+
+	g.Post("/xmlParam", func(ctx *frame.Context) {
+		user := &User{}
+		//user := User{}
+		err := ctx.BindXML(user)
+		if err == nil {
+			ctx.JSON(http.StatusOK, user)
+		} else {
+			log.Println(err)
+		}
+	})
+
 	engine.Run()
 }
