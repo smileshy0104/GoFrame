@@ -10,7 +10,7 @@ import (
 // User 结构体
 type User struct {
 	Name      string   `xml:"name" json:"name" binding:"required"`
-	Age       int      `xml:"age" json:"age" validate:"required,max=50,min=18"`
+	Age       int      `xml:"age" json:"age" validate:"required,max=50,min=5"`
 	Addresses []string `json:"addresses"`
 	Email     string   `json:"email" binding:"required"`
 }
@@ -182,6 +182,19 @@ func main() {
 	})
 
 	// JSON参数绑定
+	/**
+		[
+	    {
+	        "name": "张三",
+	        "age": 10,
+	        "addresses": [
+	            "北京",
+	            "杭州"
+	        ],
+	        "email": "www.baidu.com"
+	    }
+	]
+	*/
 	g.Post("/jsonParam", func(ctx *frame.Context) {
 		user := make([]User, 0)
 		ctx.DisallowUnknownFields = true
@@ -194,6 +207,13 @@ func main() {
 		}
 	})
 
+	// XML参数绑定
+	/**
+	<User>
+	<name>张三</name>
+	<age>20</age>
+	</User>
+	*/
 	g.Post("/xmlParam", func(ctx *frame.Context) {
 		user := &User{}
 		//user := User{}
