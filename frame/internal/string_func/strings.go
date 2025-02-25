@@ -1,4 +1,4 @@
-package msstrings
+package string_func
 
 import (
 	"fmt"
