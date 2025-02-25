@@ -235,9 +235,11 @@ func main() {
 		log.Fatal("log_test")
 		log.Panic("log_test")
 
-		//ctx.logger.Debug("我是debug日志")
-		//ctx.logger.Info("我是info日志")
-		//ctx.logger.Error("我是error日志")
+		// 调用自定义的logger
+		ctx.Logger.Debug("log_test")
+		ctx.Logger.Info("log_test")
+		ctx.Logger.Error("log_test")
+
 	})
 
 	engine.Run()

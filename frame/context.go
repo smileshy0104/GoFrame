@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"frame/binding"
+	newlogger "frame/log"
 	"frame/render"
 	"html/template"
 	"io"
@@ -30,6 +31,7 @@ type Context struct {
 	DisallowUnknownFields bool                // DisallowUnknownFields用于设置是否允许未知字段。
 	IsValidate            bool                // 是否进行验证
 	sameSite              http.SameSite       // SameSite用于设置Cookie的SameSite属性。
+	Logger                *newlogger.Logger   // logger用于记录日志。
 }
 
 // Render函数用于向客户端发送响应，并设置响应的状态码。

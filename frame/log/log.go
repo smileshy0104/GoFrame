@@ -29,9 +29,10 @@ const (
 	reset     = "\033[0m"
 )
 
-// 级别
+// LoggerLevel 日志级别
 type LoggerLevel int
 
+// Level 日志的不同级别
 func (l LoggerLevel) Level() string {
 	switch l {
 	case LevelDebug:
