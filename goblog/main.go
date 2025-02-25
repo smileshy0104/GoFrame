@@ -228,5 +228,17 @@ func main() {
 		}
 	})
 
+	// 内置日志包
+	g.Get("/log_test", func(ctx *frame.Context) {
+		// 三种不同级别的日志输出
+		log.Println("log_test")
+		log.Fatal("log_test")
+		log.Panic("log_test")
+
+		//ctx.logger.Debug("我是debug日志")
+		//ctx.logger.Info("我是info日志")
+		//ctx.logger.Error("我是error日志")
+	})
+
 	engine.Run()
 }
