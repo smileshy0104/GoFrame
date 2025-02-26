@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// 颜色代码，用于控制台输出的着色
 const (
 	greenBg   = "\033[97;42m"
 	whiteBg   = "\033[90;47m"
@@ -29,10 +30,10 @@ const (
 	reset     = "\033[0m"
 )
 
-// LoggerLevel 日志级别
+// LoggerLevel 定义日志级别类型
 type LoggerLevel int
 
-// Level 日志的不同级别
+// Level 返回日志级别的字符串表示形式
 func (l LoggerLevel) Level() string {
 	switch l {
 	case LevelDebug:
@@ -46,50 +47,58 @@ func (l LoggerLevel) Level() string {
 	}
 }
 
+// 日志级别常量
 const (
 	LevelDebug LoggerLevel = iota
 	LevelInfo
 	LevelError
 )
 
+// Fields 是一个键值对集合，用于存储日志字段
 type Fields map[string]any
 
-// Logger 日志
+// Logger 是日志记录器结构体
 type Logger struct {
-	Formatter    LoggingFormatter
-	Level        LoggerLevel
-	Outs         []*LoggerWriter
-	LoggerFields Fields
-	logPath      string
-	LogFileSize  int64
+	Formatter    LoggingFormatter // 日志格式化接口
+	Level        LoggerLevel      // 日志级别
+	Outs         []*LoggerWriter  // 输出目标列表
+	LoggerFields Fields           // 日志字段
+	logPath      string           // 日志文件路径
+	LogFileSize  int64            // 单个日志文件的最大大小
 }
 
+// LoggerWriter 表示日志输出目标
 type LoggerWriter struct {
-	Level LoggerLevel
-	Out   io.Writer
+	Level LoggerLevel // 输出的日志级别
+	Out   io.Writer   // 输出流
 }
 
+// LoggingFormatter 是日志格式化的接口
 type LoggingFormatter interface {
 	Format(param *LoggingFormatParam) string
 }
 
+// LoggingFormatParam 是日志格式化的参数结构体
 type LoggingFormatParam struct {
-	Level        LoggerLevel
-	IsColor      bool
-	LoggerFields Fields
-	Msg          any
+	Level        LoggerLevel // 日志级别
+	IsColor      bool        // 是否使用颜色
+	LoggerFields Fields      // 日志字段
+	Msg          any         // 日志消息
 }
 
+// LoggerFormatter 实现了 LoggingFormatter 接口
 type LoggerFormatter struct {
-	Level        LoggerLevel
-	IsColor      bool
-	LoggerFields Fields
+	Level        LoggerLevel // 日志级别
+	IsColor      bool        // 是否使用颜色
+	LoggerFields Fields      // 日志字段
 }
 
+// New 创建一个新的 Logger 实例
 func New() *Logger {
 	return &Logger{}
 }
 
+// Default 创建并返回一个带有默认配置的 Logger 实例
 func Default() *Logger {
 	logger := New()
 	logger.Level = LevelDebug
@@ -98,25 +107,29 @@ func Default() *Logger {
 		Out:   os.Stdout,
 	}
 	logger.Outs = append(logger.Outs, w)
-	logger.Formatter = &TextFormatter{}
+	logger.Formatter = &TextFormatter{} // 假设 TextFormatter 是一个实现了 LoggingFormatter 的结构体
 	return logger
 }
 
+// Info 记录一条 INFO 级别的日志
 func (l *Logger) Info(msg any) {
 	l.Print(LevelInfo, msg)
 }
 
+// Debug 记录一条 DEBUG 级别的日志
 func (l *Logger) Debug(msg any) {
 	l.Print(LevelDebug, msg)
 }
 
+// Error 记录一条 ERROR 级别的日志
 func (l *Logger) Error(msg any) {
 	l.Print(LevelError, msg)
 }
 
+// Print 根据指定的日志级别和消息打印日志
 func (l *Logger) Print(level LoggerLevel, msg any) {
 	if l.Level > level {
-		//当前的级别大于输入级别 不打印对应的级别日志
+		// 如果当前日志级别高于输入级别，则不打印日志
 		return
 	}
 	param := &LoggingFormatParam{
@@ -138,6 +151,7 @@ func (l *Logger) Print(level LoggerLevel, msg any) {
 	}
 }
 
+// WithFields 返回一个新的 Logger 实例，并添加额外的日志字段
 func (l *Logger) WithFields(fields Fields) *Logger {
 	return &Logger{
 		Formatter:    l.Formatter,
@@ -147,6 +161,7 @@ func (l *Logger) WithFields(fields Fields) *Logger {
 	}
 }
 
+// SetLogPath 设置日志文件路径，并初始化多个日志文件输出
 func (l *Logger) SetLogPath(logPath string) {
 	l.logPath = logPath
 	l.Outs = append(l.Outs, &LoggerWriter{
@@ -167,8 +182,8 @@ func (l *Logger) SetLogPath(logPath string) {
 	})
 }
 
+// CheckFileSize 检查日志文件大小，如果超过限制则创建新的日志文件
 func (l *Logger) CheckFileSize(w *LoggerWriter) {
-	//判断对应的文件大小
 	logFile := w.Out.(*os.File)
 	if logFile != nil {
 		stat, err := logFile.Stat()
@@ -178,7 +193,7 @@ func (l *Logger) CheckFileSize(w *LoggerWriter) {
 		}
 		size := stat.Size()
 		if l.LogFileSize <= 0 {
-			l.LogFileSize = 100 << 20
+			l.LogFileSize = 100 << 20 // 默认最大日志文件大小为 100MB
 		}
 		if size >= l.LogFileSize {
 			_, name := path.Split(stat.Name())
@@ -187,24 +202,25 @@ func (l *Logger) CheckFileSize(w *LoggerWriter) {
 			w.Out = writer
 		}
 	}
-
 }
+
+// format 格式化日志消息
 func (f *LoggerFormatter) format(msg any) string {
 	now := time.Now()
 	if f.IsColor {
-		//要带颜色  error的颜色 为红色 info为绿色 debug为蓝色
 		levelColor := f.LevelColor()
 		msgColor := f.MsgColor()
-		return fmt.Sprintf("%s [msgo] %s %s%v%s | level= %s %s %s | msg=%s %#v %s | fields=%v ",
+		return fmt.Sprintf("%s [frame] %s %s%v%s | level= %s %s %s | msg=%s %#v %s | fields=%v ",
 			yellow, reset, blue, now.Format("2006/01/02 - 15:04:05"), reset,
 			levelColor, f.Level.Level(), reset, msgColor, msg, reset, f.LoggerFields,
 		)
 	}
-	return fmt.Sprintf("[msgo] %v | level=%s | msg=%#v | fields=%#v",
+	return fmt.Sprintf("[frame] %v | level=%s | msg=%#v | fields=%#v",
 		now.Format("2006/01/02 - 15:04:05"),
 		f.Level.Level(), msg, f.LoggerFields)
 }
 
+// LevelColor 根据日志级别返回相应的颜色代码
 func (f *LoggerFormatter) LevelColor() string {
 	switch f.Level {
 	case LevelDebug:
@@ -218,6 +234,7 @@ func (f *LoggerFormatter) LevelColor() string {
 	}
 }
 
+// MsgColor 根据日志级别返回消息的颜色代码
 func (f *LoggerFormatter) MsgColor() string {
 	switch f.Level {
 	case LevelError:
@@ -227,6 +244,7 @@ func (f *LoggerFormatter) MsgColor() string {
 	}
 }
 
+// FileWriter 打开或创建一个日志文件，并返回 io.Writer
 func FileWriter(name string) io.Writer {
 	w, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
