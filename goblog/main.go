@@ -231,14 +231,14 @@ func main() {
 	// 内置日志包
 	g.Get("/log_test", func(ctx *frame.Context) {
 		// 三种不同级别的日志输出
-		log.Println("log_test")
-		log.Fatal("log_test")
-		log.Panic("log_test")
+		//log.Println("log_test")
+		//log.Fatal("log_test")
+		//log.Panic("log_test")
 
 		// 调用自定义的logger
-		ctx.Logger.Debug("log_test")
+		//ctx.Logger.Debug("log_test")
 		ctx.Logger.Info("log_test")
-		ctx.Logger.Error("log_test")
+		//ctx.Logger.Error("log_test")
 
 	})
 
