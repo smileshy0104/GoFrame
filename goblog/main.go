@@ -248,6 +248,7 @@ func main() {
 			TimeDisplay: true,
 		}
 		logger.SetLogPath("./log")
+		logger.LogFileSize = 1 << 10
 		logger.WithFields(newlogger.Fields{
 			"name": "yyds",
 			"age":  18,
