@@ -1,0 +1,3 @@
+{"age":18,"log_level":"DEBUG","log_time":"2025/03/01 - 16:02:35","msg":"我是debug日志","name":"yyds","sex":"男"}
+{"log_level":"INFO","log_time":"2025/03/01 - 16:02:35","msg":"我是info日志"}
+{"log_level":"ERROR","log_time":"2025/03/01 - 16:02:35","msg":"我是err日志"}

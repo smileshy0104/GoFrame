@@ -247,6 +247,7 @@ func main() {
 		logger.Formatter = &newlogger.JsonFormatter{
 			TimeDisplay: true,
 		}
+		logger.SetLogPath("./log")
 		logger.WithFields(newlogger.Fields{
 			"name": "yyds",
 			"age":  18,
