@@ -243,9 +243,17 @@ func main() {
 		//ctx.Logger.Error("log_test")
 
 		logger := newlogger.Default()
-		logger.Debug("log_test")
-		logger.Info("log_test")
-		logger.Error("log_test")
+		// 指定展示的格式（默认展示text格式）
+		logger.Formatter = &newlogger.JsonFormatter{
+			TimeDisplay: true,
+		}
+		logger.WithFields(newlogger.Fields{
+			"name": "yyds",
+			"age":  18,
+			"sex":  "男",
+		}).Debug("我是debug日志")
+		logger.Info("我是info日志")
+		logger.Error("我是err日志")
 
 	})
 
