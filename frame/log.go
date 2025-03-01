@@ -121,6 +121,7 @@ func LoggingWithConfig(conf LoggingConfig, next HandlerFunc) HandlerFunc {
 	out := conf.out
 	displayColor := false
 	if out == nil {
+		// 使用默认输出流并启用颜色显示
 		out = DefaultWriter
 		displayColor = true
 	}
@@ -150,6 +151,7 @@ func LoggingWithConfig(conf LoggingConfig, next HandlerFunc) HandlerFunc {
 		ip, _, _ := net.SplitHostPort(strings.TrimSpace(ctx.R.RemoteAddr))
 		clientIP := net.ParseIP(ip)
 		method := r.Method
+		// 获取状态码
 		statusCode := ctx.StatusCode
 
 		// 如果有查询参数，则将其附加到路径中

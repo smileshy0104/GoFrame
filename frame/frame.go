@@ -2,6 +2,7 @@ package frame
 
 import (
 	"fmt"
+	newlogger "frame/log"
 	"frame/render"
 	"html/template"
 	"log"
@@ -52,6 +53,7 @@ type Engine struct {
 	HTMLRender   render.HTMLRender // HTML 渲染器
 	pool         sync.Pool         // 线程池
 	errorHandler ErrorHandler
+	Logger       *newlogger.Logger
 }
 
 // New 函数用于创建并返回一个新的 Engine 实例
@@ -60,6 +62,7 @@ func New() *Engine {
 		router:     &router{},
 		funcMap:    nil,
 		HTMLRender: render.HTMLRender{},
+		Logger:     newlogger.Default(),
 	}
 	engine.pool.New = func() any {
 		return engine.allocateContext()
