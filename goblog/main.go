@@ -242,20 +242,26 @@ func main() {
 		//ctx.Logger.Info("log_test")
 		//ctx.Logger.Error("log_test")
 
-		logger := newlogger.Default()
-		// 指定展示的格式（默认展示text格式）
-		logger.Formatter = &newlogger.JsonFormatter{
-			TimeDisplay: true,
-		}
-		logger.SetLogPath("./log")
-		logger.LogFileSize = 1 << 10
-		logger.WithFields(newlogger.Fields{
-			"name": "yyds",
-			"age":  18,
-			"sex":  "男",
-		}).Debug("我是debug日志")
-		logger.Info("我是info日志")
-		logger.Error("我是err日志")
+		// TODO 封装日志记录器
+		engine.Logger.Level = newlogger.LevelDebug
+		//logger.Outs = append(logger.Outs, msLog.FileWriter("./log/log.log"))
+		engine.Logger.LogFileSize = 1 << 10
+
+		// TODO 未封装日志记录器
+		//logger := newlogger.Default()
+		//// 指定展示的格式（默认展示text格式）
+		//logger.Formatter = &newlogger.JsonFormatter{
+		//	TimeDisplay: true,
+		//}
+		//logger.SetLogPath("./log")
+		//logger.LogFileSize = 1 << 10
+		//logger.WithFields(newlogger.Fields{
+		//	"name": "yyds",
+		//	"age":  18,
+		//	"sex":  "男",
+		//}).Debug("我是debug日志")
+		ctx.Logger.Info("我是info日志")
+		ctx.Logger.Error("我是err日志")
 
 	})
 
