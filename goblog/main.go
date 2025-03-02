@@ -1,8 +1,10 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"frame"
+	newerror "frame/error"
 	newlogger "frame/log"
 	"log"
 	"net/http"
@@ -26,7 +28,19 @@ func Log(next frame.HandlerFunc) frame.HandlerFunc {
 }
 
 func main() {
-	engine := frame.New()
+	//engine := frame.New()
+	// 创建一个Engine实例，并设置日志记录器为默认日志记录器。
+	engine := frame.Default()
+	// 设置错误处理函数，用于处理框架的错误。
+	engine.RegisterErrorHandler(func(err error) (int, any) {
+		switch e := err.(type) {
+		case *BlogResponse:
+			return http.StatusOK, e.Response()
+		default:
+			return http.StatusInternalServerError, "500 error"
+		}
+	})
+
 	g := engine.Group("user")
 
 	// 使用 Use 方法添加一个中间件，该中间件会在处理请求之前和之后分别执行一些操作。
@@ -266,5 +280,78 @@ func main() {
 
 	})
 
+	g.Post("/xmlParamErr", func(ctx *frame.Context) {
+		user := &User{}
+		_ = ctx.BindXML(user)
+		err := newerror.Default()
+		err.Result(func(Error *newerror.MsError) {
+			ctx.Logger.Error(Error.Error())
+			ctx.JSON(http.StatusInternalServerError, user)
+		})
+		a(1, err)
+		b(1, err)
+		c(1, err)
+		//ctx.JSON(http.StatusOK, user)
+		//err := login()
+		ctx.HandleWithError(http.StatusOK, user, err)
+	})
 	engine.Run()
+}
+
+type BlogResponse struct {
+	Success bool
+	Code    int
+	Data    any
+	Msg     string
+}
+type BlogNoDataResponse struct {
+	Success bool
+	Code    int
+	Msg     string
+}
+
+func (b *BlogResponse) Error() string {
+	return b.Msg
+}
+
+func (b *BlogResponse) Response() any {
+	if b.Data == nil {
+		return &BlogNoDataResponse{
+			Success: false,
+			Code:    -999,
+			Msg:     "账号密码错误",
+		}
+	}
+	return b
+}
+
+func login() *BlogResponse {
+	return &BlogResponse{
+		Success: false,
+		Code:    -999,
+		Data:    nil,
+		Msg:     "账号密码错误",
+	}
+}
+
+func a(param int, msError *newerror.MsError) {
+	if param == 1 {
+		//发生错误的时候，放入一个地方 然后进行统一处理
+		err := errors.New("a error")
+		msError.Put(err)
+	}
+}
+
+func b(param int, msError *newerror.MsError) {
+	if param == 1 {
+		err2 := errors.New("b error")
+		msError.Put(err2)
+	}
+}
+
+func c(param int, msError *newerror.MsError) {
+	if param == 1 {
+		err2 := errors.New("c error")
+		msError.Put(err2)
+	}
 }

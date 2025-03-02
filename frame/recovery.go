@@ -1,7 +1,9 @@
 package frame
 
 import (
+	"errors"
 	"fmt"
+	newerror "frame/error"
 	"net/http"
 	"runtime"
 	"strings"
@@ -35,6 +37,14 @@ func Recovery(next HandlerFunc) HandlerFunc {
 		defer func() {
 			// 捕获panic
 			if err := recover(); err != nil {
+				// 如果错误实现了MsError接口，则执行MsError的ExecResult方法
+				if e := err.(error); e != nil {
+					var Error *newerror.MsError
+					if errors.As(e, &Error) {
+						Error.ExecResult()
+						return
+					}
+				}
 				// 记录错误的详细信息
 				ctx.Logger.Error(detailMsg(err))
 				// 向客户端返回500错误
