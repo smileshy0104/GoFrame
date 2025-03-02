@@ -283,9 +283,9 @@ func main() {
 
 	})
 
-	var u *User
+	//var u *User
 	g.Post("/xmlParamErr", func(ctx *frame.Context) {
-		u.Age = 10
+		//u.Age = 10
 		user := &User{}
 		err := ctx.BindXML(user)
 		if err == nil {
@@ -293,37 +293,44 @@ func main() {
 		} else {
 			log.Println(err)
 		}
-		//err := newerror.Default()
-		//err.Result(func(Error *newerror.MsError) {
-		//	ctx.Logger.Error(Error.Error())
-		//	ctx.JSON(http.StatusInternalServerError, user)
-		//})
-		//a(1, err)
-		//b(1, err)
-		//c(1, err)
-		//ctx.JSON(http.StatusOK, user)
+		// 使用自定义err进行处理
+		newerr := newerror.Default()
+		// 使用result方法打印错误信息（统一处理对应的err信息）
+		newerr.Result(func(Error *newerror.MsError) {
+			ctx.Logger.Error(Error.Error())
+			ctx.JSON(http.StatusInternalServerError, user)
+		})
+		a(1, newerr)
+		b(1, newerr)
+		c(1, newerr)
+		ctx.JSON(http.StatusOK, user)
 		//err := login()
 		//ctx.HandleWithError(http.StatusOK, user, err)
 	})
 	engine.Run()
 }
 
+// BlogResponse 是一个通用的博客操作响应结构体，包含操作的成功状态、代码、数据和消息。
 type BlogResponse struct {
 	Success bool
 	Code    int
 	Data    any
 	Msg     string
 }
+
+// BlogNoDataResponse 是一个博客操作响应结构体，用于在没有数据时返回操作的成功状态、代码和消息。
 type BlogNoDataResponse struct {
 	Success bool
 	Code    int
 	Msg     string
 }
 
+// Error 返回响应中的错误消息，实现了 error 接口。
 func (b *BlogResponse) Error() string {
 	return b.Msg
 }
 
+// Response 返回响应中的数据，如果数据为空，则返回一个默认的错误响应。
 func (b *BlogResponse) Response() any {
 	if b.Data == nil {
 		return &BlogNoDataResponse{
@@ -335,6 +342,7 @@ func (b *BlogResponse) Response() any {
 	return b
 }
 
+// login 模拟登录操作，返回一个包含失败状态和错误消息的响应。
 func login() *BlogResponse {
 	return &BlogResponse{
 		Success: false,
@@ -344,14 +352,16 @@ func login() *BlogResponse {
 	}
 }
 
+// a 当参数 param 为 1 时，生成一个错误并将其放入 msError 中进行统一处理。
 func a(param int, msError *newerror.MsError) {
 	if param == 1 {
-		//发生错误的时候，放入一个地方 然后进行统一处理
+		// 当发生错误时，将其放入一个位置进行统一处理。
 		err := errors.New("a error")
 		msError.Put(err)
 	}
 }
 
+// b 类似于 a 函数，当参数 param 为 1 时，生成一个错误并将其放入 msError 中进行统一处理。
 func b(param int, msError *newerror.MsError) {
 	if param == 1 {
 		err2 := errors.New("b error")
@@ -359,6 +369,7 @@ func b(param int, msError *newerror.MsError) {
 	}
 }
 
+// c 类似于 a 和 b 函数，当参数 param 为 1 时，生成一个错误并将其放入 msError 中进行统一处理。
 func c(param int, msError *newerror.MsError) {
 	if param == 1 {
 		err2 := errors.New("c error")

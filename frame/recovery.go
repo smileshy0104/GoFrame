@@ -41,6 +41,7 @@ func Recovery(next HandlerFunc) HandlerFunc {
 				if e := err.(error); e != nil {
 					var Error *newerror.MsError
 					if errors.As(e, &Error) {
+						// 执行MsError的ExecResult方法（自定义的err结果）
 						Error.ExecResult()
 						return
 					}

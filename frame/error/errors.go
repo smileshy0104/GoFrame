@@ -26,11 +26,12 @@ func (e *MsError) Put(err error) {
 func (e *MsError) check(err error) {
 	if err != nil {
 		e.err = err
+		// 抛出panic，传递当前MsError实例
 		panic(e)
 	}
 }
 
-// ErrorFuc定义了错误处理函数的类型，它接受一个指向MsError实例的指针
+// ErrorFuc定义了错误处理函数的类型，它接受一个指向MsError实例的指针（暴露给用户进行自定义err，相当于errors.new()）
 type ErrorFuc func(msError *MsError)
 
 // Result方法用于设置错误处理函数ErrFuc
