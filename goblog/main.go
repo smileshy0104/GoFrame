@@ -33,7 +33,9 @@ func main() {
 	engine := frame.Default()
 	// 设置错误处理函数，用于处理框架的错误。
 	engine.RegisterErrorHandler(func(err error) (int, any) {
+		// 根据错误类型进行不同的处理。
 		switch e := err.(type) {
+		// 如果错误是 BlogResponse 类型，则返回自定义的响应。
 		case *BlogResponse:
 			return http.StatusOK, e.Response()
 		default:
@@ -306,6 +308,12 @@ func main() {
 		ctx.JSON(http.StatusOK, user)
 		//err := login()
 		//ctx.HandleWithError(http.StatusOK, user, err)
+	})
+
+	g.Post("/xmlParamErr2", func(ctx *frame.Context) {
+		user := &User{}
+		err := login()
+		ctx.HandleWithError(http.StatusOK, user, err)
 	})
 	engine.Run()
 }

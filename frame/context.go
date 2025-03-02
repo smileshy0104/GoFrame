@@ -483,7 +483,9 @@ func (c *Context) Fail(code int, msg string) {
 
 // HandleWithError 处理响应，如果存在错误，则使用错误处理器处理；否则，发送带有状态码和对象的响应。
 func (c *Context) HandleWithError(statusCode int, obj any, err error) {
+	// 如果存在错误，则使用错误处理器处理，否则，发送带有状态码和对象的响应。
 	if err != nil {
+		// 使用错误处理器处理错误，并返回处理后的响应。
 		code, data := c.engine.errorHandler(err)
 		c.JSON(code, data)
 		return
