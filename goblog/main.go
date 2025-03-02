@@ -245,9 +245,9 @@ func main() {
 
 	// TODO 封装日志记录器
 	engine.Logger.Level = newlogger.LevelDebug
-	engine.Logger.Formatter = &newlogger.JsonFormatter{
-		TimeDisplay: true,
-	}
+	//engine.Logger.Formatter = &newlogger.JsonFormatter{
+	//	TimeDisplay: true,
+	//}
 	//logger.Outs = append(logger.Outs, msLog.FileWriter("./log/log.log"))
 	engine.Logger.LogFileSize = 1 << 10
 	//engine.Logger.SetLogPath("./log")
