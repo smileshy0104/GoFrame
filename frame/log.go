@@ -174,6 +174,7 @@ func LoggingWithConfig(conf LoggingConfig, next HandlerFunc) HandlerFunc {
 
 // Logging 是一个中间件，用于使用默认配置记录HTTP请求的日志
 func Logging(next HandlerFunc) HandlerFunc {
+	fmt.Println("开启日志中间件")
 	// 创建并返回一个中间件函数
 	return LoggingWithConfig(LoggingConfig{}, next)
 }

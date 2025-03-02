@@ -113,6 +113,7 @@ func (r *router) Group(name string) *routerGroup {
 		middlewaresFuncMap: make(map[string]map[string][]MiddlewareFunc),
 		treeNode:           &treeNode{name: "/", children: make([]*treeNode, 0)}, // 创建一个根节点
 	}
+	g.Use(r.engine.middles...)
 	r.routerGroup = append(r.routerGroup, g)
 	return g
 }

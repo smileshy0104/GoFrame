@@ -13,7 +13,7 @@ import (
 // User 结构体
 type User struct {
 	Name      string   `xml:"name" json:"name" binding:"required"`
-	Age       int      `xml:"age" json:"age" validate:"required,max=50,min=5"`
+	Age       int      `xml:"age" json:"age" validate:"required,max=50,min=10"`
 	Addresses []string `json:"addresses"`
 	Email     string   `json:"email" binding:"required"`
 }
@@ -243,6 +243,15 @@ func main() {
 		}
 	})
 
+	// TODO 封装日志记录器
+	engine.Logger.Level = newlogger.LevelDebug
+	engine.Logger.Formatter = &newlogger.JsonFormatter{
+		TimeDisplay: true,
+	}
+	//logger.Outs = append(logger.Outs, msLog.FileWriter("./log/log.log"))
+	engine.Logger.LogFileSize = 1 << 10
+	//engine.Logger.SetLogPath("./log")
+
 	// 内置日志包
 	g.Get("/log_test", func(ctx *frame.Context) {
 
@@ -255,12 +264,6 @@ func main() {
 		//ctx.Logger.Debug("log_test")
 		//ctx.Logger.Info("log_test")
 		//ctx.Logger.Error("log_test")
-
-		// TODO 封装日志记录器
-		engine.Logger.Level = newlogger.LevelDebug
-		//logger.Outs = append(logger.Outs, msLog.FileWriter("./log/log.log"))
-		engine.Logger.LogFileSize = 1 << 10
-		//engine.Logger.SetLogPath("./log")
 
 		// TODO 未封装日志记录器
 		//logger := newlogger.Default()
@@ -280,9 +283,16 @@ func main() {
 
 	})
 
+	var u *User
 	g.Post("/xmlParamErr", func(ctx *frame.Context) {
+		u.Age = 10
 		user := &User{}
-		_ = ctx.BindXML(user)
+		err := ctx.BindXML(user)
+		if err == nil {
+			ctx.JSON(http.StatusOK, user)
+		} else {
+			log.Println(err)
+		}
 		//err := newerror.Default()
 		//err.Result(func(Error *newerror.MsError) {
 		//	ctx.Logger.Error(Error.Error())
@@ -292,8 +302,8 @@ func main() {
 		//b(1, err)
 		//c(1, err)
 		//ctx.JSON(http.StatusOK, user)
-		err := login()
-		ctx.HandleWithError(http.StatusOK, user, err)
+		//err := login()
+		//ctx.HandleWithError(http.StatusOK, user, err)
 	})
 	engine.Run()
 }
