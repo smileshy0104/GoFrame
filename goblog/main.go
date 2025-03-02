@@ -283,16 +283,16 @@ func main() {
 	g.Post("/xmlParamErr", func(ctx *frame.Context) {
 		user := &User{}
 		_ = ctx.BindXML(user)
-		err := newerror.Default()
-		err.Result(func(Error *newerror.MsError) {
-			ctx.Logger.Error(Error.Error())
-			ctx.JSON(http.StatusInternalServerError, user)
-		})
-		a(1, err)
-		b(1, err)
-		c(1, err)
+		//err := newerror.Default()
+		//err.Result(func(Error *newerror.MsError) {
+		//	ctx.Logger.Error(Error.Error())
+		//	ctx.JSON(http.StatusInternalServerError, user)
+		//})
+		//a(1, err)
+		//b(1, err)
+		//c(1, err)
 		//ctx.JSON(http.StatusOK, user)
-		//err := login()
+		err := login()
 		ctx.HandleWithError(http.StatusOK, user, err)
 	})
 	engine.Run()
