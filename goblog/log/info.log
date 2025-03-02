@@ -1,2 +1,4 @@
 {"log_level":"INFO","log_time":"2025/03/01 - 16:02:35","msg":"我是info日志"}
 {"log_level":"INFO","log_time":"2025/03/01 - 21:06:44","msg":"我是info日志"}
+[33m [frame] [0m [34m2025/03/02 - 08:55:03[0m | level= [32m INFO [0m
+ msg:  我是info日志 [0m  

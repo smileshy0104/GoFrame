@@ -4,3 +4,7 @@
 {"age":18,"log_level":"DEBUG","log_time":"2025/03/01 - 21:06:44","msg":"我是debug日志","name":"yyds","sex":"男"}
 {"log_level":"INFO","log_time":"2025/03/01 - 21:06:44","msg":"我是info日志"}
 {"log_level":"ERROR","log_time":"2025/03/01 - 21:06:44","msg":"我是err日志"}
+[33m [frame] [0m [34m2025/03/02 - 08:55:03[0m | level= [32m INFO [0m
+ msg:  我是info日志 [0m  
+[33m [frame] [0m [34m2025/03/02 - 08:55:03[0m | level= [31m ERROR [0m[31m
+ Error Cause By:  我是err日志 [0m  

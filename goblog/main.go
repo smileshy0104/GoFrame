@@ -246,6 +246,7 @@ func main() {
 		engine.Logger.Level = newlogger.LevelDebug
 		//logger.Outs = append(logger.Outs, msLog.FileWriter("./log/log.log"))
 		engine.Logger.LogFileSize = 1 << 10
+		//engine.Logger.SetLogPath("./log")
 
 		// TODO 未封装日志记录器
 		//logger := newlogger.Default()

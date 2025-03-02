@@ -73,8 +73,11 @@ func New() *Engine {
 	return engine
 }
 
+// Default 函数用于创建并返回一个新的 Engine 实例，并使用默认的中间件（Recovery和Logging）
 func Default() *Engine {
+	// 创建并返回一个新的 Engine 实例，并使用默认的中间件（Recovery和Logging）。
 	engine := New()
+	// 使用Recovery和Logging中间件，将框架的错误处理函数设置为默认的ErrorHandler。
 	engine.Use(Recovery, Logging)
 	return engine
 }
