@@ -52,14 +52,16 @@ type Engine struct {
 	funcMap      template.FuncMap  // 模板函数
 	HTMLRender   render.HTMLRender // HTML 渲染器
 	pool         sync.Pool         // 线程池
-	errorHandler ErrorHandler
-	Logger       *newlogger.Logger
+	errorHandler ErrorHandler      // 错误处理函数
+	Logger       *newlogger.Logger // 日志记录器
+	middles      []MiddlewareFunc  // 中间件函数列表
 }
 
 // New 函数用于创建并返回一个新的 Engine 实例
 func New() *Engine {
+	r := &router{}
 	engine := &Engine{
-		router:     &router{},
+		router:     r,
 		funcMap:    nil,
 		HTMLRender: render.HTMLRender{},
 		Logger:     newlogger.Default(),
@@ -67,6 +69,13 @@ func New() *Engine {
 	engine.pool.New = func() any {
 		return engine.allocateContext()
 	}
+	r.engine = engine
+	return engine
+}
+
+func Default() *Engine {
+	engine := New()
+	engine.Use(Recovery, Logging)
 	return engine
 }
 
@@ -259,6 +268,7 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := e.pool.Get().(*Context)
 	ctx.W = w
 	ctx.R = r
+	ctx.Logger = e.Logger
 	e.httpRequestHandle(ctx, w, r)
 	e.pool.Put(ctx)
 }
@@ -311,4 +321,27 @@ func (e *Engine) httpRequestHandle(ctx *Context, w http.ResponseWriter, r *http.
 	// 所有路由组匹配失败时返回404
 	w.WriteHeader(http.StatusNotFound)
 	fmt.Fprintf(w, "%s  not found \n", r.URL.Path)
+}
+
+// RunTLS 启动 HTTPS 服务器，监听指定的端口。
+func (e *Engine) RunTLS(addr, certFile, keyFile string) {
+	err := http.ListenAndServeTLS(addr, certFile, keyFile, e.Handler())
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+// Use 注册中间件
+func (e *Engine) Use(middles ...MiddlewareFunc) {
+	e.middles = append(e.middles, middles...)
+}
+
+// RegisterErrorHandler 注册错误处理函数
+func (e *Engine) RegisterErrorHandler(handler ErrorHandler) {
+	e.errorHandler = handler
+}
+
+// Handler 返回http.Handler
+func (e *Engine) Handler() http.Handler {
+	return e
 }
