@@ -315,6 +315,11 @@ func main() {
 		err := login()
 		ctx.HandleWithError(http.StatusOK, user, err)
 	})
+	g.Post("/xmlParamErr3", func(ctx *frame.Context) {
+		user := &User{}
+		err := login()
+		ctx.HandleWithError(http.StatusOK, user, err)
+	})
 	engine.Run()
 }
 
