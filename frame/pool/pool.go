@@ -140,52 +140,90 @@ func (p *Pool) GetWorker() (w *Worker) {
 	//}
 }
 
+// expireWorker 定期检查并清理过期的空闲worker。
+//
+// 该函数在一个独立的goroutine中运行，通过ticker按照设定的时间间隔进行清理操作。
+// 每次清理时，会遍历所有空闲的worker，并将超过设定过期时间的worker从池中移除。
 func (p *Pool) expireWorker() {
-	//定时清理过期的空闲worker
+	// 创建一个定时器，每隔p.expire时间触发一次清理操作
 	ticker := time.NewTicker(p.expire)
+
+	// 持续监听ticker的事件，每次触发时执行一次清理操作
 	for range ticker.C {
+		// 如果池已关闭，则停止清理操作
 		if p.IsClosed() {
 			break
 		}
-		//循环空闲的workers 如果当前时间和worker的最后运行任务的时间 差值大于expire 进行清理
+
+		// 加锁以确保线程安全地访问和修改共享资源
 		p.lock.Lock()
+
+		// 获取当前所有的空闲worker
 		idleWorkers := p.workers
+
+		// 如果有空闲worker，则进行清理操作
 		n := len(idleWorkers) - 1
 		if n >= 0 {
 			var clearN = -1
+
+			// 遍历所有空闲worker，检查它们是否已经过期
 			for i, w := range idleWorkers {
+				// 如果当前worker未过期，则停止清理操作
 				if time.Now().Sub(w.lastTime) <= p.expire {
 					break
 				}
+
+				// 记录需要清理的最后一个worker的索引
 				clearN = i
+
+				// 向worker发送nil任务，使其退出运行
 				w.task <- nil
+
+				// 将worker置为nil，表示它已被清理
 				idleWorkers[i] = nil
 			}
-			// 3 2
+
+			// 如果有worker被清理，则更新workers列表
 			if clearN != -1 {
 				if clearN >= len(idleWorkers)-1 {
+					// 如果清理的是最后一个worker，则清空workers列表
 					p.workers = idleWorkers[:0]
 				} else {
-					// len=3 0,1 del 2
+					// 否则，截取清理后的workers列表
 					p.workers = idleWorkers[clearN+1:]
 				}
+
+				// 打印清理完成的日志信息
 				fmt.Printf("清除完成,running:%d, workers:%v \n", p.running, p.workers)
 			}
 		}
+
+		// 解锁以释放共享资源
 		p.lock.Unlock()
 	}
 }
 
+// waitIdleWorker 等待并获取一个空闲的worker。
+//
+// 该函数首先尝试从现有的空闲worker中获取一个，如果没有任何空闲worker且pool未满员，
+// 则创建一个新的worker；如果pool已满员，则等待直到有空闲的worker可用。
 func (p *Pool) waitIdleWorker() *Worker {
+	// 加锁以确保线程安全地访问和修改共享资源
 	p.lock.Lock()
+
+	// 等待条件变量，直到有空闲worker或池已关闭
 	p.cond.Wait()
 
+	// 获取当前所有的空闲worker
 	idleWorkers := p.workers
+
+	// 如果没有空闲worker，则根据pool的状态决定如何处理
 	n := len(idleWorkers) - 1
 	if n < 0 {
 		p.lock.Unlock()
+
+		// 如果pool未满员，则创建一个新的worker
 		if p.running < p.cap {
-			//还不够pool的容量，直接新建一个
 			c := p.workerCache.Get()
 			var w *Worker
 			if c == nil {
@@ -196,15 +234,27 @@ func (p *Pool) waitIdleWorker() *Worker {
 			} else {
 				w = c.(*Worker)
 			}
+
+			// 启动新的worker
 			w.run()
 			return w
 		}
+
+		// 如果pool已满员，则继续等待空闲worker
 		return p.waitIdleWorker()
 	}
+
+	// 从空闲worker列表中取出最后一个worker
 	w := idleWorkers[n]
 	idleWorkers[n] = nil
+
+	// 更新workers列表，移除已取出的worker
 	p.workers = idleWorkers[:n]
+
+	// 解锁以释放共享资源
 	p.lock.Unlock()
+
+	// 返回获取到的worker
 	return w
 }
 
@@ -218,21 +268,32 @@ func (p *Pool) decRunning() {
 	atomic.AddInt32(&p.running, -1)
 }
 
-// PutWorker 放回worker
+// Running 获取当前正在运行的工作协程数量。
+func (p *Pool) Running() int {
+	return int(atomic.LoadInt32(&p.running))
+}
+
+// PutWorker 将一个已存在的Worker放回Pool中，以便再次使用
+// 此函数旨在回收完成任务的Worker，使其能够进入等待状态，并在需要时被重新调度
 func (p *Pool) PutWorker(w *Worker) {
 	// 记录一下worker的最后运行时间
 	w.lastTime = time.Now()
+	// 加锁以保护共享资源
 	p.lock.Lock()
 	// 放回worker
 	p.workers = append(p.workers, w)
 	// 唤醒一个等待的worker
 	p.cond.Signal()
+	// 解锁以释放共享资源
 	p.lock.Unlock()
 }
 
+// Release 释放池资源，确保释放操作仅执行一次。该方法会等待所有工作协程空闲后才进行资源释放。
+//
+// 此函数通过 once.Do 确保只执行一次，并且在释放资源时会清空所有工作协程的任务和引用，最后发送一个信号表示资源已释放。
 func (p *Pool) Release() {
 	p.once.Do(func() {
-		//只执行一次
+		// 获取锁以确保线程安全地释放资源
 		p.lock.Lock()
 		workers := p.workers
 		for i, w := range workers {
@@ -244,16 +305,19 @@ func (p *Pool) Release() {
 			workers[i] = nil
 		}
 		p.workers = nil
+		// 释放锁
 		p.lock.Unlock()
+		// 发送信号表示资源已释放
 		p.release <- sig{}
 	})
 }
 
+// IsClosed 检查池是否已关闭。
 func (p *Pool) IsClosed() bool {
-
 	return len(p.release) > 0
 }
 
+// Restart 尝试重启池。如果池未关闭则直接返回 true；如果池已关闭，则接收释放信号并重新启动过期工作协程。
 func (p *Pool) Restart() bool {
 	if len(p.release) <= 0 {
 		return true
@@ -263,10 +327,7 @@ func (p *Pool) Restart() bool {
 	return true
 }
 
-func (p *Pool) Running() int {
-	return int(atomic.LoadInt32(&p.running))
-}
-
+// Free 获取池中空闲的可用工作协程数量。
 func (p *Pool) Free() int {
 	return int(p.cap - p.running)
 }

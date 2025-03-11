@@ -28,23 +28,26 @@ func (w *Worker) run() {
 // 该方法是worker的主执行逻辑，负责从任务队列中取出任务并执行。
 // 它还处理了任务执行过程中的异常情况，并确保worker在任务执行完毕后能够被正确回收和唤醒等待的worker。
 func (w *Worker) running() {
+	// 使用defer确保在函数结束时执行后续的操作，无论是否发生panic。
 	defer func() {
 		// 减少正在运行的worker（相当于processor）
 		w.pool.decRunning()
-		// 将worker放回workerCache中（相当于processor）
+		// 将worker放回workerCache中
 		w.pool.workerCache.Put(w)
 		// 捕获任务发生的panic
 		if err := recover(); err != nil {
-			//捕获任务发生的panic
+			// 如果设置了PanicHandler，则调用PanicHandler处理panic
 			if w.pool.PanicHandler != nil {
 				w.pool.PanicHandler()
 			} else {
+				// 否则，使用默认的日志记录器记录错误
 				newlogger.Default().Error(err)
 			}
 		}
 		// 唤醒等待的worker
 		w.pool.cond.Signal()
 	}()
+
 	// 循环执行任务task
 	for f := range w.task {
 		// 如果f为空，说明worker已经关闭了
