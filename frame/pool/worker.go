@@ -1,6 +1,7 @@
 package pool
 
 import (
+	newlogger "frame/log"
 	"time"
 )
 
@@ -12,4 +13,42 @@ type Worker struct {
 	task chan func()
 	//lastTime 执行任务的最后的时间
 	lastTime time.Time
+}
+
+// run 运行worker
+func (w *Worker) run() {
+	// 增加正在运行的worker
+	w.pool.incRunning()
+	// 运行worker
+	go w.running()
+}
+
+// running worker运行
+func (w *Worker) running() {
+	defer func() {
+		// 减少正在运行的worker
+		w.pool.decRunning()
+		// 将worker放回workerCache中
+		w.pool.workerCache.Put(w)
+		// 捕获任务发生的panic
+		if err := recover(); err != nil {
+			//捕获任务发生的panic
+			if w.pool.PanicHandler != nil {
+				w.pool.PanicHandler()
+			} else {
+				newlogger.Default().Error(err)
+			}
+		}
+		// 唤醒等待的worker
+		w.pool.cond.Signal()
+	}()
+	// 循环执行任务
+	for f := range w.task {
+		if f == nil {
+			return
+		}
+		f()
+		//任务运行完成，worker空闲
+		w.pool.PutWorker(w)
+	}
 }
