@@ -3,6 +3,7 @@ package pool
 import (
 	"errors"
 	"fmt"
+	"frame/config"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -51,13 +52,14 @@ func NewPool(cap int) (*Pool, error) {
 	return NewTimePool(cap, DefaultExpire)
 }
 
-//func NewPoolConf() (*Pool, error) {
-//	cap, ok := config.Conf.Pool["cap"]
-//	if !ok {
-//		return nil, errors.New("cap config not exist")
-//	}
-//	return NewTimePool(int(cap.(int64)), DefaultExpire)
-//}
+// NewPoolConf 根据配置文件创建一个Pool
+func NewPoolConf() (*Pool, error) {
+	cap, ok := config.Conf.Pool["cap"]
+	if !ok {
+		return nil, errors.New("cap config not exist")
+	}
+	return NewTimePool(int(cap.(int64)), DefaultExpire)
+}
 
 // NewTimePool 创建一个Pool
 func NewTimePool(cap int, expire int) (*Pool, error) {
@@ -212,10 +214,15 @@ func (p *Pool) incRunning() {
 func (p *Pool) decRunning() {
 	atomic.AddInt32(&p.running, -1)
 }
+
+// PutWorker 放回worker
 func (p *Pool) PutWorker(w *Worker) {
+	// 记录一下worker的最后运行时间
 	w.lastTime = time.Now()
 	p.lock.Lock()
+	// 放回worker
 	p.workers = append(p.workers, w)
+	// 唤醒一个等待的worker
 	p.cond.Signal()
 	p.lock.Unlock()
 }
