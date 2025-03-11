@@ -54,6 +54,7 @@ func NewPool(cap int) (*Pool, error) {
 
 // NewPoolConf 根据配置文件创建一个Pool
 func NewPoolConf() (*Pool, error) {
+	// 获取配置文件内容
 	cap, ok := config.Conf.Pool["cap"]
 	if !ok {
 		return nil, errors.New("cap config not exist")
