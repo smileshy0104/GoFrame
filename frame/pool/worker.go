@@ -16,6 +16,7 @@ type Worker struct {
 }
 
 // run 运行worker
+// 该方法负责将worker添加到运行状态，并启动一个新的协程来执行具体任务。
 func (w *Worker) run() {
 	// 增加正在运行的worker
 	w.pool.incRunning()
@@ -24,6 +25,8 @@ func (w *Worker) run() {
 }
 
 // running worker运行
+// 该方法是worker的主执行逻辑，负责从任务队列中取出任务并执行。
+// 它还处理了任务执行过程中的异常情况，并确保worker在任务执行完毕后能够被正确回收和唤醒等待的worker。
 func (w *Worker) running() {
 	defer func() {
 		// 减少正在运行的worker（相当于processor）

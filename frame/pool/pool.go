@@ -40,9 +40,9 @@ type Pool struct {
 	once sync.Once
 	//workerCache 缓存
 	workerCache sync.Pool
-	//cond
+	//cond 用于条件变量同步
 	cond *sync.Cond
-	//PanicHandler
+	//PanicHandler 用于处理 panic 情况
 	PanicHandler func()
 }
 
@@ -56,9 +56,11 @@ func NewPool(cap int) (*Pool, error) {
 func NewPoolConf() (*Pool, error) {
 	// 获取配置文件内容
 	cap, ok := config.Conf.Pool["cap"]
+	// 如果没有配置文件，返回错误
 	if !ok {
 		return nil, errors.New("cap config not exist")
 	}
+	// 使用类型断言来获取配置文件中的cap，再调用NewTimePool创建一个默认到期时间的Pool
 	return NewTimePool(int(cap.(int64)), DefaultExpire)
 }
 
