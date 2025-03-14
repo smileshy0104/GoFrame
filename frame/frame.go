@@ -330,7 +330,7 @@ func (e *Engine) httpRequestHandle(ctx *Context, w http.ResponseWriter, r *http.
 	fmt.Fprintf(w, "%s  not found \n", r.URL.Path)
 }
 
-// RunTLS 启动 HTTPS 服务器，监听指定的端口。
+// RunTLS 启动 HTTPS 服务器，监听指定的端口。（若希望可以支持https进行访问，那么必须要配置相关的证书）
 func (e *Engine) RunTLS(addr, certFile, keyFile string) {
 	err := http.ListenAndServeTLS(addr, certFile, keyFile, e.Handler())
 	if err != nil {
