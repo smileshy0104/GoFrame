@@ -6,8 +6,10 @@ import (
 	"frame"
 	newerror "frame/error"
 	newlogger "frame/log"
+	"frame/token"
 	"log"
 	"net/http"
+	"time"
 )
 
 // User 结构体
@@ -45,12 +47,12 @@ func main() {
 
 	// TODO 使用Basic认证部分（base64进行加密）
 	// Postman进行调用时需要使用Basic认证 设置Authorization 为 Basic eXlkczoxMjM0NTY=
-	fmt.Println(frame.BasicAuth("yyds", "123456"))
-	auth := &frame.Accounts{
-		Users: make(map[string]string),
-	}
-	auth.Users["yyds"] = "123456"
-	engine.Use(auth.BasicAuth)
+	//fmt.Println(frame.BasicAuth("yyds", "123456"))
+	//auth := &frame.Accounts{
+	//	Users: make(map[string]string),
+	//}
+	//auth.Users["yyds"] = "123456"
+	//engine.Use(auth.BasicAuth)
 
 	g := engine.Group("user")
 
@@ -328,6 +330,30 @@ func main() {
 		user := &User{}
 		err := login()
 		ctx.HandleWithError(http.StatusOK, user, err)
+	})
+
+	// TODO JWT认证相关内容
+	g.Get("/login", func(ctx *frame.Context) {
+		// 实例化JWT认证
+		jwt := &token.JwtHandler{}
+		jwt.Key = []byte("123456")            // 密钥
+		jwt.SendCookie = true                 // 是否发送cookie
+		jwt.TimeOut = 10 * time.Minute        // 登录过期时间
+		jwt.RefreshTimeOut = 20 * time.Minute // 刷新token过期时间
+		// 设置认证信息
+		jwt.Authenticator = func(ctx *frame.Context) (map[string]any, error) {
+			data := make(map[string]any)
+			data["userId"] = 1
+			return data, nil
+		}
+		// 登录认证
+		token, err := jwt.LoginHandler(ctx)
+		if err != nil {
+			log.Println(err)
+			ctx.JSON(http.StatusOK, err.Error())
+			return
+		}
+		ctx.JSON(http.StatusOK, token)
 	})
 	engine.Run()
 }
