@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 )
 
 // defaultMultipartMemory是multipart/form-data请求的最大内存限制，单位为字节。
@@ -32,6 +33,8 @@ type Context struct {
 	IsValidate            bool                // 是否进行验证
 	sameSite              http.SameSite       // SameSite用于设置Cookie的SameSite属性。
 	Logger                *newlogger.Logger   // logger用于记录日志。
+	Keys                  map[string]any      // Keys是一个用于存储键值对的映射，用于在请求处理过程中传递请求特定数据。
+	mu                    sync.RWMutex        // 同步读写锁
 }
 
 // Render函数用于向客户端发送响应，并设置响应的状态码。
@@ -513,4 +516,39 @@ func (c *Context) SetCookie(name, value string, maxAge int, path, domain string,
 // GetHeader 从请求中获取指定的头信息。
 func (c *Context) GetHeader(key string) string {
 	return c.R.Header.Get(key)
+}
+
+// TODO 认证支持————Basic认证（进行base64进行编码，存放到header中）
+// Set 方法用于在Context对象中设置键值对。
+// 它接受一个键和一个值作为参数，将它们添加到Context的Keys字典中。
+// 如果Keys字典尚未初始化，则会先进行初始化。
+// 使用互斥锁确保并发安全性。
+func (c *Context) Set(key string, value string) {
+	c.mu.Lock()
+	if c.Keys == nil {
+		c.Keys = make(map[string]any)
+	}
+
+	c.Keys[key] = value
+	c.mu.Unlock()
+}
+
+// Get 方法用于从Context对象中获取与指定键关联的值。
+// 它接受一个键作为参数，并返回对应的值以及一个布尔值表示该键是否存在。
+// 如果键不存在，则返回值为0且exists为false。
+// 使用读锁确保并发安全性。
+func (c *Context) Get(key string) (value any, exists bool) {
+	c.mu.RLock()
+	value, exists = c.Keys[key]
+	if !exists {
+		value = 0
+	}
+	c.mu.RUnlock()
+	return
+}
+
+// SetBasicAuth 设置请求的Basic认证信息。
+func (c *Context) SetBasicAuth(username, password string) {
+	// 设置请求的Basic认证信息。（将对应的用户名和密码存到请求头中）
+	c.R.Header.Set("Authorization", "Basic "+BasicAuth(username, password))
 }

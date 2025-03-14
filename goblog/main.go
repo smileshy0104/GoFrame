@@ -43,6 +43,15 @@ func main() {
 		}
 	})
 
+	// TODO 使用Basic认证部分（base64进行加密）
+	// Postman进行调用时需要使用Basic认证 设置Authorization 为 Basic eXlkczoxMjM0NTY=
+	fmt.Println(frame.BasicAuth("yyds", "123456"))
+	auth := &frame.Accounts{
+		Users: make(map[string]string),
+	}
+	auth.Users["yyds"] = "123456"
+	engine.Use(auth.BasicAuth)
+
 	g := engine.Group("user")
 
 	// 使用 Use 方法添加一个中间件，该中间件会在处理请求之前和之后分别执行一些操作。
