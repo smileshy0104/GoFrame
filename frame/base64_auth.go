@@ -48,7 +48,8 @@ func (a *Accounts) unAuthHandler(ctx *Context) {
 	if a.UnAuthHandler != nil {
 		a.UnAuthHandler(ctx)
 	} else {
-		//
+		// 否则，使用默认的未授权处理逻辑
+		// TODO 这里相当于处理“摘要认证”，当未授权通过时，设置WWW-Authenticate头，并返回401状态码
 		ctx.W.Header().Set("WWW-Authenticate", a.Realm)
 		ctx.W.WriteHeader(http.StatusUnauthorized)
 	}
