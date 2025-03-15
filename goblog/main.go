@@ -54,6 +54,11 @@ func main() {
 	//auth.Users["yyds"] = "123456"
 	//engine.Use(auth.BasicAuth)
 
+	// TODO 使用令牌认证——JWT认证
+	jh := &token.JwtHandler{Key: []byte("123456")}
+	//为特定的中间件 需要指定不进行拦截的请求
+	engine.Use(jh.AuthInterceptor)
+
 	g := engine.Group("user")
 
 	// 使用 Use 方法添加一个中间件，该中间件会在处理请求之前和之后分别执行一些操作。
@@ -355,6 +360,25 @@ func main() {
 		}
 		ctx.JSON(http.StatusOK, token)
 	})
+
+	g.Get("/refresh", func(ctx *frame.Context) {
+		jwt := &token.JwtHandler{}
+		jwt.Key = []byte("123456")
+		jwt.SendCookie = true
+		jwt.TimeOut = 10 * time.Minute
+		jwt.RefreshTimeOut = 20 * time.Minute
+		jwt.RefreshKey = "blog_refresh_token"
+		// 利用现有的refresh token 刷新token，刷新token后，需要将新的token和refresh token返回给客户端。（用户可以不用进行重新登陆）
+		ctx.Set(jwt.RefreshKey, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3NDIwMjAxMDIsImlhdCI6MTc0MjAxODkwMiwidXNlcklkIjoxfQ.OdOeA9V-cLuWStPJzWYasZceDhqJp_M1GbSCRoIc5jA")
+		token, err := jwt.RefreshHandler(ctx)
+		if err != nil {
+			log.Println(err)
+			ctx.JSON(http.StatusOK, err.Error())
+			return
+		}
+		ctx.JSON(http.StatusOK, token)
+	})
+
 	engine.Run()
 }
 

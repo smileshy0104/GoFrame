@@ -185,7 +185,8 @@ func (j *JwtHandler) LogoutHandler(ctx *frame.Context) error {
 
 }
 
-// RefreshHandler 处理token刷新请求，验证刷新token并生成新的JWT token
+// TODO （不需要用户重新走对应的登陆逻辑）
+// RefreshHandler 处理token刷新请求，验证刷新token并生成新的JWT token（不需要用户重新走对应的登陆逻辑）
 // RefreshHandler 是一个处理JWT刷新请求的方法。
 // 它从上下文中获取刷新令牌，验证并生成一个新的访问令牌。
 // 参数: ctx *frame.Context - 包含请求上下文的指针。
@@ -297,7 +298,7 @@ func (j *JwtHandler) AuthInterceptor(next frame.HandlerFunc) frame.HandlerFunc {
 			return
 		}
 
-		// 解析token
+		// 解析token（可以成功解析出对应内容）
 		t, err := jwt.Parse(token, func(token *jwt.Token) (interface{}, error) {
 			// 根据使用的算法选择密钥
 			if j.usingPublicKeyAlgo() {
