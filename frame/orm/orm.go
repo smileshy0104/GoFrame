@@ -364,39 +364,64 @@ func (s *FrameSession) InsertBatch(data []any) (int64, int64, error) {
 	return id, affected, nil
 }
 
+// UpdateParam 更新FrameSession对象中的参数。
+// 该方法用于动态构建SQL更新语句的SET部分，通过接受字段名称和对应的值来更新session的状态。
 func (s *FrameSession) UpdateParam(field string, value any) *FrameSession {
+	// 检查是否已经有参数被添加，如果有，则添加逗号分隔。
 	if s.updateParam.String() != "" {
 		s.updateParam.WriteString(",")
 	}
+	// 将字段名称和对应的占位符添加到updateParam中，用于后续构建SQL语句。
 	s.updateParam.WriteString(field)
 	s.updateParam.WriteString(" = ? ")
+	// 将实际的值添加到values切片中，用于后续的SQL查询。
 	s.values = append(s.values, value)
+	// 返回FrameSession对象，支持链式调用。
 	return s
 }
 
+// UpdateMap 更新FrameSession对象的状态，以便在后续的SQL语句中使用。
+// 该方法接受一个键值对映射（data），将其转换为SQL的SET子句需要的格式。
 func (s *FrameSession) UpdateMap(data map[string]any) *FrameSession {
+	// 遍历data映射，构建SQL的SET子句需要的部分。
 	for k, v := range data {
+		// 如果已经有字段需要更新，添加逗号分隔。
 		if s.updateParam.String() != "" {
 			s.updateParam.WriteString(",")
 		}
+		// 将字段名和对应的占位符"?"添加到updateParam中。
 		s.updateParam.WriteString(k)
 		s.updateParam.WriteString(" = ? ")
+		// 将字段的值添加到values切片中，作为SQL语句的参数。
 		s.values = append(s.values, v)
 	}
+	// 返回FrameSession对象，支持链式调用。
 	return s
 }
 
+// Update 更新数据库中的记录。
+// 该方法支持两种调用方式：
+// 1. 传递键值对（列名和新值），例如：Update("age", 1)
+// 2. 传递一个结构体指针，例如：Update(user)
+// 参数说明：
+//   - data: 可变参数，用于指定更新的字段或结构体。如果传递两个参数，则第一个参数为列名，第二个参数为新值；
+//     如果传递一个参数，则该参数应为一个结构体指针。
 func (s *FrameSession) Update(data ...any) (int64, int64, error) {
-	//Update("age",1) or Update(user)
+	// 检查参数数量是否合法。如果参数数量超过2个，则返回错误。
 	if len(data) > 2 {
 		return -1, -1, errors.New("param not valid")
 	}
+
+	// 如果没有传递任何参数，则执行无条件更新操作。
 	if len(data) == 0 {
+		// 构建更新SQL语句。
 		query := fmt.Sprintf("update %s set %s", s.tableName, s.updateParam.String())
 		var sb strings.Builder
 		sb.WriteString(query)
 		sb.WriteString(s.whereParam.String())
 		s.db.logger.Info(sb.String())
+
+		// 根据事务状态选择不同的数据库连接进行预编译。
 		var stmt *sql.Stmt
 		var err error
 		if s.beginTx {
@@ -407,6 +432,8 @@ func (s *FrameSession) Update(data ...any) (int64, int64, error) {
 		if err != nil {
 			return -1, -1, err
 		}
+
+		// 执行SQL语句并获取结果。
 		s.values = append(s.values, s.whereValues...)
 		r, err := stmt.Exec(s.values...)
 		if err != nil {
@@ -422,11 +449,14 @@ func (s *FrameSession) Update(data ...any) (int64, int64, error) {
 		}
 		return id, affected, nil
 	}
+
+	// 判断是单个结构体还是键值对更新。
 	single := true
 	if len(data) == 2 {
 		single = false
 	}
-	//update table set age=?,name=? where id=?
+
+	// 如果是键值对更新，则直接构建SET子句。
 	if !single {
 		if s.updateParam.String() != "" {
 			s.updateParam.WriteString(",")
@@ -435,33 +465,44 @@ func (s *FrameSession) Update(data ...any) (int64, int64, error) {
 		s.updateParam.WriteString(" = ? ")
 		s.values = append(s.values, data[1])
 	} else {
+		// 如果是结构体更新，则通过反射提取结构体字段信息。
 		updateData := data[0]
 		t := reflect.TypeOf(updateData)
 		v := reflect.ValueOf(updateData)
+
+		// 确保传递的是一个指针类型。
 		if t.Kind() != reflect.Pointer {
 			panic(errors.New("updateData must be pointer"))
 		}
+
 		tVar := t.Elem()
 		vVar := v.Elem()
+
+		// 遍历结构体字段，构建SET子句。
 		for i := 0; i < tVar.NumField(); i++ {
 			fieldName := tVar.Field(i).Name
 			tag := tVar.Field(i).Tag
-			sqlTag := tag.Get("msorm")
+			sqlTag := tag.Get("gorm")
+
+			// 如果字段标记包含"auto_increment"，则跳过该字段。
 			if sqlTag == "" {
 				sqlTag = strings.ToLower(Name(fieldName))
 			} else {
 				if strings.Contains(sqlTag, "auto_increment") {
-					//自增长的主键id
 					continue
 				}
 				if strings.Contains(sqlTag, ",") {
 					sqlTag = sqlTag[:strings.Index(sqlTag, ",")]
 				}
 			}
+
 			id := vVar.Field(i).Interface()
+
+			// 如果字段是自增长主键且值为默认值，则跳过该字段。
 			if strings.ToLower(sqlTag) == "id" && IsAutoId(id) {
 				continue
 			}
+
 			if s.updateParam.String() != "" {
 				s.updateParam.WriteString(",")
 			}
@@ -470,11 +511,15 @@ func (s *FrameSession) Update(data ...any) (int64, int64, error) {
 			s.values = append(s.values, vVar.Field(i).Interface())
 		}
 	}
+
+	// 构建最终的更新SQL语句。
 	query := fmt.Sprintf("update %s set %s", s.tableName, s.updateParam.String())
 	var sb strings.Builder
 	sb.WriteString(query)
 	sb.WriteString(s.whereParam.String())
 	s.db.logger.Info(sb.String())
+
+	// 根据事务状态选择不同的数据库连接进行预编译。
 	var stmt *sql.Stmt
 	var err error
 	if s.beginTx {
@@ -485,6 +530,8 @@ func (s *FrameSession) Update(data ...any) (int64, int64, error) {
 	if err != nil {
 		return -1, -1, err
 	}
+
+	// 执行SQL语句并获取结果。
 	s.values = append(s.values, s.whereValues...)
 	r, err := stmt.Exec(s.values...)
 	if err != nil {
@@ -604,8 +651,6 @@ func (s *FrameSession) Select(data any, fields ...string) ([]any, error) {
 
 	return result, nil
 }
-
-//select * from table where id=1000
 
 func (s *FrameSession) SelectOne(data any, fields ...string) error {
 	t := reflect.TypeOf(data)
@@ -789,17 +834,24 @@ func (s *FrameSession) QueryRow(sql string, data any, queryValues ...any) error 
 	return nil
 }
 
+// Begin 开始一个新的事务。
+// 返回错误如果数据库操作失败。
 func (s *FrameSession) Begin() error {
+	// 获取sql.DB中的事务
 	tx, err := s.db.db.Begin()
 	if err != nil {
 		return err
 	}
+	// 设置事务为true
 	s.tx = tx
 	s.beginTx = true
 	return nil
 }
 
+// Commit 提交当前事务。
+// 返回错误如果数据库操作失败。
 func (s *FrameSession) Commit() error {
+	// 提交事务
 	err := s.tx.Commit()
 	if err != nil {
 		return err
@@ -808,7 +860,10 @@ func (s *FrameSession) Commit() error {
 	return nil
 }
 
+// Rollback 回滚当前事务。
+// 返回错误如果数据库操作失败。
 func (s *FrameSession) Rollback() error {
+	// 回滚事务
 	err := s.tx.Rollback()
 	if err != nil {
 		return err
@@ -817,6 +872,9 @@ func (s *FrameSession) Rollback() error {
 	return nil
 }
 
+// Where 为查询添加一个等值条件。
+// 参数 field 是列名，value 是对应的值。
+// 返回修改后的 FrameSession 实例。
 func (s *FrameSession) Where(field string, value any) *FrameSession {
 	//id=1 and name=xx
 	if s.whereParam.String() == "" {
@@ -829,6 +887,9 @@ func (s *FrameSession) Where(field string, value any) *FrameSession {
 	return s
 }
 
+// Like 为查询添加一个模糊条件（右侧包含）。
+// 参数 field 是列名，value 是对应的值。
+// 返回修改后的 FrameSession 实例。
 func (s *FrameSession) Like(field string, value any) *FrameSession {
 	//name like %s%
 	if s.whereParam.String() == "" {
@@ -841,6 +902,9 @@ func (s *FrameSession) Like(field string, value any) *FrameSession {
 	return s
 }
 
+// LikeRight 为查询添加一个右侧模糊条件。
+// 参数 field 是列名，value 是对应的值。
+// 返回修改后的 FrameSession 实例。
 func (s *FrameSession) LikeRight(field string, value any) *FrameSession {
 	//name like %s%
 	if s.whereParam.String() == "" {
@@ -853,6 +917,9 @@ func (s *FrameSession) LikeRight(field string, value any) *FrameSession {
 	return s
 }
 
+// LikeLeft 为查询添加一个左侧模糊条件。
+// 参数 field 是列名，value 是对应的值。
+// 返回修改后的 FrameSession 实例。
 func (s *FrameSession) LikeLeft(field string, value any) *FrameSession {
 	//name like %s%
 	if s.whereParam.String() == "" {
@@ -865,6 +932,9 @@ func (s *FrameSession) LikeLeft(field string, value any) *FrameSession {
 	return s
 }
 
+// Group 为查询添加一个分组条件。
+// 参数 field 是列名列表，用于分组。
+// 返回修改后的 FrameSession 实例。
 func (s *FrameSession) Group(field ...string) *FrameSession {
 	//group by aa,bb
 	s.whereParam.WriteString(" group by ")
@@ -872,6 +942,9 @@ func (s *FrameSession) Group(field ...string) *FrameSession {
 	return s
 }
 
+// OrderDesc 为查询添加一个降序排序条件。
+// 参数 field 是列名列表，用于排序。
+// 返回修改后的 FrameSession 实例。
 func (s *FrameSession) OrderDesc(field ...string) *FrameSession {
 	//order by aa,bb desc
 	s.whereParam.WriteString(" order by ")
@@ -880,6 +953,9 @@ func (s *FrameSession) OrderDesc(field ...string) *FrameSession {
 	return s
 }
 
+// OrderAsc 为查询添加一个升序排序条件。
+// 参数 field 是列名列表，用于排序。
+// 返回修改后的 FrameSession 实例。
 func (s *FrameSession) OrderAsc(field ...string) *FrameSession {
 	//order by aa,bb asc
 	s.whereParam.WriteString(" order by ")
@@ -888,8 +964,10 @@ func (s *FrameSession) OrderAsc(field ...string) *FrameSession {
 	return s
 }
 
-// Order order by aa desc, bb asc
-// Order  Order("aa","desc","bb","asc)
+// Order 为查询添加一个自定义排序条件。
+// 参数 field 是列名和排序方式的交替列表。
+// 返回修改后的 FrameSession 实例。
+// 如果列名数量不是偶数，抛出 panic。
 func (s *FrameSession) Order(field ...string) *FrameSession {
 	if len(field)%2 != 0 {
 		panic("field num not true")
@@ -903,52 +981,81 @@ func (s *FrameSession) Order(field ...string) *FrameSession {
 	}
 	return s
 }
+
+// And 在对应的条件后面添加 and
 func (s *FrameSession) And() *FrameSession {
 	s.whereParam.WriteString(" and ")
 	return s
 }
 
+// Or 在对应的条件后面添加 or
 func (s *FrameSession) Or() *FrameSession {
 	s.whereParam.WriteString(" or ")
 	return s
 }
 
+// IsAutoId 判断给定的id是否为自动增长的ID。
+// 自动增长的ID定义为非负的整数类型（int, int32, int64）且值大于0。
+// 如果id符合自动增长ID的定义，则返回true，否则返回false。
 func IsAutoId(id any) bool {
+	// 获取id的类型
 	t := reflect.TypeOf(id)
+	// 根据id的类型进行判断
 	switch t.Kind() {
 	case reflect.Int64:
+		// 如果是int64类型且值小于等于0，则认为是自动增长的ID
 		if id.(int64) <= 0 {
 			return true
 		}
 	case reflect.Int32:
+		// 如果是int32类型且值小于等于0，则认为是自动增长的ID
 		if id.(int32) <= 0 {
 			return true
 		}
 	case reflect.Int:
+		// 如果是int类型且值小于等于0，则认为是自动增长的ID
 		if id.(int) <= 0 {
 			return true
 		}
 	default:
+		// 如果不是上述支持的整数类型，则不认为是自动增长的ID
 		return false
 	}
+	// 如果不符合自动增长ID的条件，则返回false
 	return false
 }
 
+// Name 函数用于将驼峰命名转换为下划线命名。
+// 参数 name 是一个字符串，表示驼峰命名的单词。
+// 返回值是一个字符串，表示转换后的下划线命名的单词。
 func Name(name string) string {
+	// 创建一个字符串切片来存储输入的字符串
 	var names = name[:]
+
+	// 初始化 lastIndex 为 0，用于记录最后一个大写字母的位置
 	lastIndex := 0
+
+	// 创建一个 strings.Builder 对象，用于构建最终的字符串
 	var sb strings.Builder
+
+	// 遍历 names 中的每个字符及其索引
 	for index, value := range names {
+		// 检查字符是否为大写字母
 		if value >= 65 && value <= 90 {
-			//大写字幕
+			// 如果当前字符是大写字母且不是第一个字符，则在它之前添加下划线
 			if index == 0 {
 				continue
 			}
+			// 向 sb 中添加从 lastIndex 到当前索引的子字符串
 			sb.WriteString(name[:index])
+			// 添加下划线
 			sb.WriteString("_")
+			// 更新 lastIndex 为当前索引
 			lastIndex = index
 		}
 	}
+	// 向 sb 中添加从 lastIndex 到字符串末尾的子字符串
 	sb.WriteString(name[lastIndex:])
+	// 返回构建好的字符串
 	return sb.String()
 }
