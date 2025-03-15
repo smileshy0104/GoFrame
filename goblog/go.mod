@@ -3,7 +3,9 @@ module goblog
 go 1.20
 
 require (
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/go-sql-driver/mysql v1.8.2-0.20240613143533-a3323c059a7c // indirect
 	github.com/golang-jwt/jwt/v4 v4.3.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect

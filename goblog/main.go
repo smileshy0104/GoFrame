@@ -15,7 +15,7 @@ import (
 
 // TODO 通过 embed.FS 嵌入静态资源
 //
-//go:embed config/*
+//go:embed conf/*
 var f embed.FS
 
 // User 结构体
