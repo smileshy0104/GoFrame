@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
+	"github.com/spf13/viper"
 )
 
 var AppConf *viper.Viper
