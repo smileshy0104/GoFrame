@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"errors"
 	"fmt"
 	"frame"
@@ -11,6 +12,11 @@ import (
 	"net/http"
 	"time"
 )
+
+// TODO 通过 embed.FS 嵌入静态资源
+//
+//go:embed config/*
+var f embed.FS
 
 // User 结构体
 type User struct {
