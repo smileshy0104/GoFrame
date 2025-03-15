@@ -7,7 +7,14 @@ import (
 	"net/url"
 )
 
-// User 结构体
+//type User struct {
+//	Id       int64  `gorm:"id,auto_increment"`
+//	UserName string `gorm:"user_name"`
+//	Password string `gorm:"password"`
+//	Age      int    `gorm:"age"`
+//}
+
+// User 结构体（跟数据库中的结构一样）
 type User struct {
 	Id       int64
 	UserName string
@@ -35,18 +42,18 @@ func SaveUser() {
 }
 
 func SaveUserBatch() {
-	dataSourceName := fmt.Sprintf("root:root@tcp(localhost:3306)/msgo?charset=utf8&loc=%s&parseTime=true", url.QueryEscape("Asia/Shanghai"))
+	dataSourceName := fmt.Sprintf("root:root@tcp(localhost:3306)/framego?charset=utf8&loc=%s&parseTime=true", url.QueryEscape("Asia/Shanghai"))
 	db := orm.Open("mysql", dataSourceName)
-	db.Prefix = "msgo_"
+	//db.Prefix = "framego"
 	user := &User{
-		UserName: "mszlu222",
+		UserName: "yys1",
 		Password: "12345612",
-		Age:      54,
+		Age:      36,
 	}
 	user1 := &User{
-		UserName: "mszlu111",
+		UserName: "yys2",
 		Password: "123456111",
-		Age:      12,
+		Age:      48,
 	}
 	var users []any
 	users = append(users, user, user1)

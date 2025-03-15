@@ -91,99 +91,226 @@ func (db *FrameDb) SetMaxIdleConns(n int) {
 	db.db.SetMaxIdleConns(n)
 }
 
+// New 创建一个新的 FrameSession 实例，用于执行数据库操作。
 func (db *FrameDb) New(data any) *FrameSession {
+	// 创建 FrameSession 实例并将其 db 字段设置为当前 FrameDb 实例。
 	m := &FrameSession{
 		db: db,
 	}
+
+	// 获取 data 参数的类型。
 	t := reflect.TypeOf(data)
+
+	// 检查 data 是否为指针类型，如果不是，则抛出 panic。
+	// 这是因为后续操作需要通过反射获取指针指向的类型的名称。
 	if t.Kind() != reflect.Pointer {
 		panic(errors.New("data must be pointer"))
 	}
+
+	// 获取指针指向的类型的反射 Type。
 	tVar := t.Elem()
+
+	// 如果表名尚未设置，则根据 data 参数指向的类型的名称生成一个表名。
+	// 表名由数据库前缀和类型名称的组合而成。
 	if m.tableName == "" {
 		m.tableName = m.db.Prefix + strings.ToLower(Name(tVar.Name()))
 	}
+
+	// 返回初始化后的 FrameSession 实例。
 	return m
 }
+
+// Table 设置表名
 func (s *FrameSession) Table(name string) *FrameSession {
 	s.tableName = name
 	return s
 }
-func (s *FrameSession) Insert(data any) (int64, int64, error) {
-	//每一个操作是独立的 互不影响的 session
-	//insert into table (xxx,xxx) values(?,?)
-	s.fieldNames(data)
-	query := fmt.Sprintf("insert into %s (%s) values (%s)", s.tableName, strings.Join(s.fieldName, ","), strings.Join(s.placeHolder, ","))
-	s.db.logger.Info(query)
-	var stmt *sql.Stmt
-	var err error
-	if s.beginTx {
-		stmt, err = s.tx.Prepare(query)
-	} else {
-		stmt, err = s.db.db.Prepare(query)
-	}
-	if err != nil {
-		return -1, -1, err
-	}
-	r, err := stmt.Exec(s.values...)
-	if err != nil {
-		return -1, -1, err
-	}
-	id, err := r.LastInsertId()
-	if err != nil {
-		return -1, -1, err
-	}
-	affected, err := r.RowsAffected()
-	if err != nil {
-		return -1, -1, err
-	}
-	return id, affected, nil
-}
 
+// TODO 重要部分，解析相关的插入数据
+// fieldNames 提取数据结构中的字段名和对应值，准备用于SQL查询。
+// 该方法主要作用是通过反射机制遍历给定数据结构的字段，根据字段标签确定SQL查询中的字段名和占位符，并将字段值存储起来。
+// 参数 data 是一个指向任意类型的指针，该类型将被反射以提取字段信息。
 func (s *FrameSession) fieldNames(data any) {
-	//反射
+	// 使用反射获取数据的类型和值
 	t := reflect.TypeOf(data)
 	v := reflect.ValueOf(data)
+
+	// 确保 data 参数是一个指针类型，以防止反射操作出错
 	if t.Kind() != reflect.Pointer {
 		panic(errors.New("data must be pointer"))
 	}
+
+	// 获取指针所指向的类型的元素类型和值
 	tVar := t.Elem()
 	vVar := v.Elem()
+
+	// 如果表名尚未设置，则根据数据结构的名称生成一个默认表名
 	if s.tableName == "" {
+		// 根据数据结构的名称生成表名
 		s.tableName = s.db.Prefix + strings.ToLower(Name(tVar.Name()))
 	}
+
+	// 遍历数据结构的每个字段
 	for i := 0; i < tVar.NumField(); i++ {
+		// 获取字段的名称和标签
 		fieldName := tVar.Field(i).Name
 		tag := tVar.Field(i).Tag
-		sqlTag := tag.Get("msorm")
+
+		// 从字段标签中提取gorm标签的值，用于SQL查询
+		sqlTag := tag.Get("gorm")
 		if sqlTag == "" {
 			sqlTag = strings.ToLower(Name(fieldName))
 		} else {
+			// 如果字段标记包含“auto_increment”，则跳过该字段，因为它通常是自增长的主键
 			if strings.Contains(sqlTag, "auto_increment") {
-				//自增长的主键id
 				continue
 			}
+			// 如果sqlTag包含逗号，取逗号前的部分作为字段名
 			if strings.Contains(sqlTag, ",") {
 				sqlTag = sqlTag[:strings.Index(sqlTag, ",")]
 			}
 		}
+
+		// 获取字段的值并进行类型断言
 		id := vVar.Field(i).Interface()
+
+		// 如果sqlTag是"id"且字段值是自增长的主键，则跳过
 		if strings.ToLower(sqlTag) == "id" && IsAutoId(id) {
 			continue
 		}
+
+		// 将处理后的字段名和对应的值添加到session的相应切片中
 		s.fieldName = append(s.fieldName, sqlTag)
 		s.placeHolder = append(s.placeHolder, "?")
 		s.values = append(s.values, vVar.Field(i).Interface())
 	}
 }
 
+// TODO 重要部分，解析相关的插入数据 根据字段的 tag 决定是否将值添加到 s.values 中。
+// batchValues 是一个用于处理批量插入数据的函数。
+// 它接受一个 any 类型的切片 data，该切片包含了多个结构体对象。
+// 函数会遍历每个结构体对象，提取其字段值，并根据字段的 tag 决定是否将值添加到 s.values 中。
+// s.values 是一个用于存储所有数据的切片，这些数据将用于数据库的批量插入操作。
+func (s *FrameSession) batchValues(data []any) {
+	// 初始化 s.values 为一个新的空切片，用于存储处理后的字段值。
+	s.values = make([]any, 0)
+
+	// 遍历 data 切片中的每个元素。
+	for _, v := range data {
+		// 获取当前元素的类型和值。
+		t := reflect.TypeOf(v)
+		v := reflect.ValueOf(v)
+
+		// 检查元素是否为指针类型，如果不是，则抛出错误。
+		if t.Kind() != reflect.Pointer {
+			panic(errors.New("data must be pointer"))
+		}
+
+		// 获取指针所指向的类型的变量和值。
+		tVar := t.Elem()
+		vVar := v.Elem()
+
+		// 遍历类型的每个字段。
+		for i := 0; i < tVar.NumField(); i++ {
+			// 获取当前字段的名称和 tag。
+			fieldName := tVar.Field(i).Name
+			tag := tVar.Field(i).Tag
+			sqlTag := tag.Get("gorm")
+
+			// 如果 gorm tag 为空，则使用字段名称的小写形式作为默认值。
+			if sqlTag == "" {
+				sqlTag = strings.ToLower(Name(fieldName))
+			} else {
+				// 如果 tag 中包含 "auto_increment"，表示该字段是自增长的主键，跳过该字段。
+				if strings.Contains(sqlTag, "auto_increment") {
+					continue
+				}
+			}
+
+			// 获取字段的值并进行类型断言。
+			id := vVar.Field(i).Interface()
+
+			// 如果字段的 tag 是 "id" 且值是自动生成的 ID，则跳过该字段。
+			if strings.ToLower(sqlTag) == "id" && IsAutoId(id) {
+				continue
+			}
+
+			// 将字段的值添加到 s.values 中。
+			s.values = append(s.values, vVar.Field(i).Interface())
+		}
+	}
+}
+
+// Insert 方法用于向数据库中插入一条记录。
+// 参数 data 代表要插入的数据，其类型为任意类型。
+// 返回值为插入记录的自增ID、受影响的行数以及可能的错误。
+// 该方法首先构建插入SQL语句，然后根据是否在事务中选择不同的数据库连接进行预编译。
+// 预编译成功后执行SQL语句，并获取执行结果。
+// 最后，从执行结果中获取最后插入记录的自增ID和受影响的行数，并返回这些值。
+func (s *FrameSession) Insert(data any) (int64, int64, error) {
+	// 构建插入SQL语句的字段名部分。（解析相关的插入数据）
+	s.fieldNames(data)
+	// 构建完整的插入SQL语句。
+	query := fmt.Sprintf("insert into %s (%s) values (%s)", s.tableName, strings.Join(s.fieldName, ","), strings.Join(s.placeHolder, ","))
+	// 记录SQL语句日志。
+	s.db.logger.Info(query)
+
+	// 声明stmt变量用于存储预编译的SQL语句。
+	var stmt *sql.Stmt
+	// 声明err变量用于存储错误信息。
+	var err error
+
+	// 根据是否在事务中选择不同的数据库连接进行预编译。
+	if s.beginTx {
+		stmt, err = s.tx.Prepare(query)
+	} else {
+		stmt, err = s.db.db.Prepare(query)
+	}
+	// 如果预编译失败，返回错误。
+	if err != nil {
+		return -1, -1, err
+	}
+
+	// 执行预编译的SQL语句。
+	r, err := stmt.Exec(s.values...)
+	// 如果执行失败，返回错误。
+	if err != nil {
+		return -1, -1, err
+	}
+
+	// 获取最后插入记录的自增ID。
+	id, err := r.LastInsertId()
+	// 如果获取失败，返回错误。
+	if err != nil {
+		return -1, -1, err
+	}
+
+	// 获取受影响的行数。
+	affected, err := r.RowsAffected()
+	// 如果获取失败，返回错误。
+	if err != nil {
+		return -1, -1, err
+	}
+
+	// 返回插入记录的自增ID、受影响的行数以及nil错误。
+	return id, affected, nil
+}
+
+// InsertBatch 批量插入数据到数据库中。
+// 该方法根据提供的数据数组生成一个批量插入查询，并执行该查询。
 func (s *FrameSession) InsertBatch(data []any) (int64, int64, error) {
-	//insert into table (xxx,xxx) values(?,?),(?,?)
+	// 当数据为空时，返回错误。
 	if len(data) == 0 {
 		return -1, -1, errors.New("no data insert")
 	}
+
+	// 准备插入查询的字段名。（通过第一个数据获取对应信息）
 	s.fieldNames(data[0])
+
+	// 构建插入查询的初始部分，包括表名和字段名。
 	query := fmt.Sprintf("insert into %s (%s) values ", s.tableName, strings.Join(s.fieldName, ","))
+
+	// 构建包含多个值集合的字符串，每个值集合代表一行数据。（拼接成批量插入的sql语句）
 	var sb strings.Builder
 	sb.WriteString(query)
 	for index, _ := range data {
@@ -194,8 +321,14 @@ func (s *FrameSession) InsertBatch(data []any) (int64, int64, error) {
 			sb.WriteString(",")
 		}
 	}
+
+	// 将所有数据记录的值添加到batchValues中，以备后续执行查询。
 	s.batchValues(data)
+
+	// 记录日志信息。
 	s.db.logger.Info(sb.String())
+
+	// 准备SQL语句。
 	var stmt *sql.Stmt
 	var err error
 	if s.beginTx {
@@ -204,21 +337,30 @@ func (s *FrameSession) InsertBatch(data []any) (int64, int64, error) {
 		stmt, err = s.db.db.Prepare(sb.String())
 	}
 
+	// 如果准备SQL语句时发生错误，返回错误。
 	if err != nil {
 		return -1, -1, err
 	}
+
+	// 执行SQL语句。
 	r, err := stmt.Exec(s.values...)
 	if err != nil {
 		return -1, -1, err
 	}
+
+	// 获取最后插入行的ID。
 	id, err := r.LastInsertId()
 	if err != nil {
 		return -1, -1, err
 	}
+
+	// 获取受影响的行数。
 	affected, err := r.RowsAffected()
 	if err != nil {
 		return -1, -1, err
 	}
+
+	// 返回最后插入行的ID、受影响的行数和nil错误。
 	return id, affected, nil
 }
 
@@ -769,37 +911,6 @@ func (s *FrameSession) And() *FrameSession {
 func (s *FrameSession) Or() *FrameSession {
 	s.whereParam.WriteString(" or ")
 	return s
-}
-
-func (s *FrameSession) batchValues(data []any) {
-	s.values = make([]any, 0)
-	for _, v := range data {
-		t := reflect.TypeOf(v)
-		v := reflect.ValueOf(v)
-		if t.Kind() != reflect.Pointer {
-			panic(errors.New("data must be pointer"))
-		}
-		tVar := t.Elem()
-		vVar := v.Elem()
-		for i := 0; i < tVar.NumField(); i++ {
-			fieldName := tVar.Field(i).Name
-			tag := tVar.Field(i).Tag
-			sqlTag := tag.Get("msorm")
-			if sqlTag == "" {
-				sqlTag = strings.ToLower(Name(fieldName))
-			} else {
-				if strings.Contains(sqlTag, "auto_increment") {
-					//自增长的主键id
-					continue
-				}
-			}
-			id := vVar.Field(i).Interface()
-			if strings.ToLower(sqlTag) == "id" && IsAutoId(id) {
-				continue
-			}
-			s.values = append(s.values, vVar.Field(i).Interface())
-		}
-	}
 }
 
 func IsAutoId(id any) bool {
