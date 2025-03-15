@@ -67,9 +67,9 @@ func SaveUserBatch() {
 }
 
 func UpdateUser() {
-	dataSourceName := fmt.Sprintf("root:root@tcp(localhost:3306)/msgo?charset=utf8&loc=%s&parseTime=true", url.QueryEscape("Asia/Shanghai"))
+	dataSourceName := fmt.Sprintf("root:root@tcp(localhost:3306)/framego?charset=utf8&loc=%s&parseTime=true", url.QueryEscape("Asia/Shanghai"))
 	db := orm.Open("mysql", dataSourceName)
-	db.Prefix = "msgo_"
+	//db.Prefix = "mframego_"
 	//id, _, err := db.New().Where("id", 1006).Where("age", 54).Update(user)
 	//单个插入
 	user := &User{
@@ -122,14 +122,14 @@ func UpdateUser() {
 }
 
 func SelectOne() {
-	dataSourceName := fmt.Sprintf("root:root@tcp(localhost:3306)/msgo?charset=utf8&loc=%s&parseTime=true", url.QueryEscape("Asia/Shanghai"))
+	dataSourceName := fmt.Sprintf("root:root@tcp(localhost:3306)/framego?charset=utf8&loc=%s&parseTime=true", url.QueryEscape("Asia/Shanghai"))
 	db := orm.Open("mysql", dataSourceName)
-	db.Prefix = "msgo_"
+	//db.Prefix = "framego_"
 	user := &User{}
 	err := db.New(user).
-		Where("id", 1006).
+		Where("id", 1).
 		Or().
-		Where("age", 30).
+		Where("age", 36).
 		SelectOne(user, "user_name")
 	if err != nil {
 		panic(err)
@@ -140,11 +140,11 @@ func SelectOne() {
 }
 
 func Select() {
-	dataSourceName := fmt.Sprintf("root:root@tcp(localhost:3306)/msgo?charset=utf8&loc=%s&parseTime=true", url.QueryEscape("Asia/Shanghai"))
+	dataSourceName := fmt.Sprintf("root:root@tcp(localhost:3306)/framego?charset=utf8&loc=%s&parseTime=true", url.QueryEscape("Asia/Shanghai"))
 	db := orm.Open("mysql", dataSourceName)
-	db.Prefix = "msgo_"
+	//db.Prefix = "framego_"
 	user := &User{}
-	users, err := db.New(user).Where("id", 1000).Order("id", "asc", "age", "desc").Select(user)
+	users, err := db.New(user).Order("id", "asc", "age", "desc").Select(user)
 	if err != nil {
 		panic(err)
 	}
@@ -156,9 +156,9 @@ func Select() {
 }
 
 func Count() {
-	dataSourceName := fmt.Sprintf("root:root@tcp(localhost:3306)/msgo?charset=utf8&loc=%s&parseTime=true", url.QueryEscape("Asia/Shanghai"))
+	dataSourceName := fmt.Sprintf("root:root@tcp(localhost:3306)/framego?charset=utf8&loc=%s&parseTime=true", url.QueryEscape("Asia/Shanghai"))
 	db := orm.Open("mysql", dataSourceName)
-	db.Prefix = "msgo_"
+	//db.Prefix = "framego_"
 	user := &User{}
 	count, err := db.New(user).Count()
 	if err != nil {
