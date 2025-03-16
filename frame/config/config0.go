@@ -13,7 +13,7 @@ var AppConf *viper.Viper
 func InitConfig(f embed.FS) {
 	AppConf = viper.New()
 	//添加根路径
-	dir := "config"
+	dir := "conf"
 	// 获取目录的文件名
 	dirEntries, err := f.ReadDir(dir)
 	if err != nil {

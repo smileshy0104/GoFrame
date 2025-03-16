@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"frame"
+	"frame/config"
 	newerror "frame/error"
 	newlogger "frame/log"
 	"frame/token"
@@ -36,6 +37,8 @@ func Log(next frame.HandlerFunc) frame.HandlerFunc {
 }
 
 func main() {
+	config.InitConfig(f)
+	fmt.Println(config.AppConf.GetString("database.dsn"))
 	//engine := frame.New()
 	// 创建一个Engine实例，并设置日志记录器为默认日志记录器。
 	engine := frame.Default()
