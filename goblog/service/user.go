@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"frame/orm"
 	_ "github.com/go-sql-driver/mysql"
+	"math/rand"
 	"net/url"
 )
 
@@ -71,35 +72,38 @@ func UpdateUser() {
 	db := orm.Open("mysql", dataSourceName)
 	//db.Prefix = "mframego_"
 	//id, _, err := db.New().Where("id", 1006).Where("age", 54).Update(user)
+
+	randInt := rand.Int()
+
 	//单个插入
 	user := &User{
-		UserName: "mszlu",
+		UserName: fmt.Sprintf("yyds%d", randInt),
 		Password: "123456",
 		Age:      30,
 	}
-	id, _, err := db.New(&User{}).Insert(user)
+	insertId, _, err := db.New(&User{}).Insert(user)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(id)
+	fmt.Println(insertId)
 
 	//批量插入
 	var users []any
-	users = append(users, user)
-	id, _, err = db.New(&User{}).InsertBatch(users)
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(id)
+	//users = append(users, user)
+	//id, _, err = db.New(&User{}).InsertBatch(users)
+	//if err != nil {
+	//	panic(err)
+	//}
+	//fmt.Println(id)
 	//更新
-	id, _, err = db.
+	id, _, err := db.
 		New(&User{}).
-		Where("id", 1006).
+		Where("id", insertId).
 		UpdateParam("age", 100).
 		Update()
 	//查询单行数据
 	err = db.New(&User{}).
-		Where("id", 1006).
+		Where("id", id).
 		Or().
 		Where("age", 30).
 		SelectOne(user, "user_name")

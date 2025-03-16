@@ -548,14 +548,18 @@ func (s *FrameSession) Update(data ...any) (int64, int64, error) {
 	return id, affected, nil
 }
 
+// Delete 从数据库中删除符合条件的记录。
+// 参数说明：
+//   - 无显式参数，方法基于当前 FrameSession 的状态（如表名、条件等）执行删除操作。
 func (s *FrameSession) Delete() (int64, error) {
-	//delete from table where id=?
+	// 构建删除SQL语句
 	query := fmt.Sprintf("delete from %s ", s.tableName)
 	var sb strings.Builder
 	sb.WriteString(query)
 	sb.WriteString(s.whereParam.String())
 	s.db.logger.Info(sb.String())
 
+	// 根据事务状态选择不同的数据库连接进行预编译
 	var stmt *sql.Stmt
 	var err error
 	if s.beginTx {
@@ -566,63 +570,86 @@ func (s *FrameSession) Delete() (int64, error) {
 	if err != nil {
 		return 0, err
 	}
+
+	// 执行删除操作
 	r, err := stmt.Exec(s.whereValues...)
 	if err != nil {
 		return 0, err
 	}
+
+	// 返回受影响的行数
 	return r.RowsAffected()
 }
 
+// Select 执行数据库查询并根据查询结果填充数据。
+// 该方法接受一个数据结构指针和一个可变长的字段列表作为参数，
+// 查询指定字段的数据，并将结果映射到传入的数据结构中。
+// 如果传入的数据参数不是指针类型，则返回错误。
 func (s *FrameSession) Select(data any, fields ...string) ([]any, error) {
+	// 检查传入的data是否为指针类型
 	t := reflect.TypeOf(data)
 	if t.Kind() != reflect.Pointer {
 		return nil, errors.New("data must be pointer")
 	}
+
+	// 根据传入的fields参数构建查询字段字符串
 	fieldStr := "*"
 	if len(fields) > 0 {
 		fieldStr = strings.Join(fields, ",")
 	}
+
+	// 构建查询语句
 	query := fmt.Sprintf("select %s from %s ", fieldStr, s.tableName)
 	var sb strings.Builder
 	sb.WriteString(query)
 	sb.WriteString(s.whereParam.String())
 	s.db.logger.Info(sb.String())
 
+	// 准备查询语句
 	stmt, err := s.db.db.Prepare(sb.String())
 	if err != nil {
 		return nil, err
 	}
+
+	// 执行查询
 	rows, err := stmt.Query(s.whereValues...)
 	if err != nil {
 		return nil, err
 	}
-	//id user_name age
+
+	// 获取查询结果的列名
 	columns, err := rows.Columns()
 	if err != nil {
 		return nil, err
 	}
+
+	// 初始化结果集
 	result := make([]any, 0)
 	for {
 		if rows.Next() {
-			//由于 传进来的是一个指针地址 如果每次赋值，实际都是一个 result里面 值都一样
-			//每次查询的时候 data都重新换一个地址
+			// 为每次查询结果创建一个新的data实例
 			data := reflect.New(t.Elem()).Interface()
 			values := make([]any, len(columns))
 			fieldScan := make([]any, len(columns))
 			for i := range fieldScan {
 				fieldScan[i] = &values[i]
 			}
+
+			// 将查询结果扫描到fieldScan中
 			err := rows.Scan(fieldScan...)
 			if err != nil {
 				return nil, err
 			}
+
+			// 获取data实例的类型和值
 			tVar := t.Elem()
 			vVar := reflect.ValueOf(data).Elem()
+
+			// 将查询结果映射到data实例中
 			for i := 0; i < tVar.NumField(); i++ {
 				name := tVar.Field(i).Name
 				tag := tVar.Field(i).Tag
-				//id,auto
-				sqlTag := tag.Get("msorm")
+				sqlTag := tag.Get("gorm")
 				if sqlTag == "" {
 					sqlTag = strings.ToLower(Name(name))
 				} else {
@@ -636,67 +663,82 @@ func (s *FrameSession) Select(data any, fields ...string) ([]any, error) {
 						target := values[j]
 						targetValue := reflect.ValueOf(target)
 						fieldType := tVar.Field(i).Type
-						//这样不行 类型不匹配 转换类型
 						result := reflect.ValueOf(targetValue.Interface()).Convert(fieldType)
 						vVar.Field(i).Set(result)
 					}
 				}
-
 			}
+
+			// 将填充好的data实例添加到结果集中
 			result = append(result, data)
 		} else {
 			break
 		}
 	}
 
+	// 返回结果集
 	return result, nil
 }
 
+// SelectOne 从数据库中选择一条记录，并将其映射到提供的数据结构中。
+// 参数 data 是一个指向数据结构的指针，函数将查询结果填充到这个数据结构中。
+// 参数 fields 是一个可变参数，用于指定要选择的字段，如果未提供则选择所有字段。
 func (s *FrameSession) SelectOne(data any, fields ...string) error {
+	// 获取 data 参数的类型
 	t := reflect.TypeOf(data)
+	// 检查 data 是否是一个指针类型
 	if t.Kind() != reflect.Pointer {
 		return errors.New("data must be pointer")
 	}
+	// 初始化字段字符串，如果未指定字段则默认为 "*"
 	fieldStr := "*"
 	if len(fields) > 0 {
 		fieldStr = strings.Join(fields, ",")
 	}
+	// 构建查询语句
 	query := fmt.Sprintf("select %s from %s ", fieldStr, s.tableName)
 	var sb strings.Builder
 	sb.WriteString(query)
 	sb.WriteString(s.whereParam.String())
+	// 记录查询日志
 	s.db.logger.Info(sb.String())
 
+	// 准备查询语句
 	stmt, err := s.db.db.Prepare(sb.String())
 	if err != nil {
 		return err
 	}
+	// 执行查询
 	rows, err := stmt.Query(s.whereValues...)
 	if err != nil {
 		return err
 	}
-	//id user_name age
+	// 获取查询结果的列名
 	columns, err := rows.Columns()
 	if err != nil {
 		return err
 	}
+	// 初始化用于存储查询结果的变量
 	values := make([]any, len(columns))
 	fieldScan := make([]any, len(columns))
 	for i := range fieldScan {
 		fieldScan[i] = &values[i]
 	}
+	// 处理查询结果
 	if rows.Next() {
 		err := rows.Scan(fieldScan...)
 		if err != nil {
 			return err
 		}
+		// 获取 data 参数的类型和值
 		tVar := t.Elem()
 		vVar := reflect.ValueOf(data).Elem()
+		// 遍历类型的字段，将查询结果映射到数据结构中
 		for i := 0; i < tVar.NumField(); i++ {
 			name := tVar.Field(i).Name
 			tag := tVar.Field(i).Tag
-			//id,auto
-			sqlTag := tag.Get("msorm")
+			// 获取字段的 SQL 标签
+			sqlTag := tag.Get("gorm")
 			if sqlTag == "" {
 				sqlTag = strings.ToLower(Name(name))
 			} else {
@@ -705,12 +747,13 @@ func (s *FrameSession) SelectOne(data any, fields ...string) error {
 				}
 			}
 
+			// 将查询结果映射到数据结构的字段中
 			for j, colName := range columns {
 				if sqlTag == colName {
 					target := values[j]
 					targetValue := reflect.ValueOf(target)
 					fieldType := tVar.Field(i).Type
-					//这样不行 类型不匹配 转换类型
+					// 将查询结果转换为字段的类型
 					result := reflect.ValueOf(targetValue.Interface()).Convert(fieldType)
 					vVar.Field(i).Set(result)
 				}
@@ -721,40 +764,63 @@ func (s *FrameSession) SelectOne(data any, fields ...string) error {
 	return nil
 }
 
+// Count 统计 FrameSession 中的帧数。
+// 该方法使用 "count" 聚合操作，对所有帧进行计数，不考虑任何条件。
+// 返回值是帧的总数和可能遇到的错误。
 func (s *FrameSession) Count() (int64, error) {
 	return s.Aggregate("count", "*")
 }
 
+// Aggregate 执行聚合函数查询
+// 该方法根据提供的函数名称和字段，在数据库中执行聚合操作（如COUNT, SUM等）。
 func (s *FrameSession) Aggregate(funcName string, field string) (int64, error) {
+	// 构建聚合函数的字段字符串，例如"COUNT(id)"
 	var fieldSb strings.Builder
 	fieldSb.WriteString(funcName)
 	fieldSb.WriteString("(")
 	fieldSb.WriteString(field)
 	fieldSb.WriteString(")")
+
+	// 构建完整的SQL查询语句
 	query := fmt.Sprintf("select %s from %s ", fieldSb.String(), s.tableName)
+
+	// 将查询语句和WHERE条件参数合并生成最终的SQL语句
 	var sb strings.Builder
 	sb.WriteString(query)
 	sb.WriteString(s.whereParam.String())
+
+	// 记录SQL语句的日志
 	s.db.logger.Info(sb.String())
 
+	// 准备SQL语句
 	stmt, err := s.db.db.Prepare(sb.String())
 	if err != nil {
 		return 0, err
 	}
+
+	// 执行SQL查询
 	row := stmt.QueryRow(s.whereValues...)
 	if row.Err() != nil {
 		return 0, err
 	}
+
+	// 存储查询结果
 	var result int64
+	// 将查询结果扫描到变量中
 	err = row.Scan(&result)
 	if err != nil {
 		return 0, err
 	}
+
+	// 返回聚合操作的结果
 	return result, nil
 }
 
-// 原生sql的支持
+// Exec 执行SQL语句并返回受影响的行数或最后插入的ID。
+// 该方法根据是否开始事务来决定使用事务的Prepare方法还是数据库连接的Prepare方法准备SQL语句。
+// 如果是插入操作，返回最后插入的ID；否则返回受影响的行数。
 func (s *FrameSession) Exec(query string, values ...any) (int64, error) {
+	// 根据是否在事务中，选择不同的SQL准备方式。
 	var stmt *sql.Stmt
 	var err error
 	if s.beginTx {
@@ -762,54 +828,68 @@ func (s *FrameSession) Exec(query string, values ...any) (int64, error) {
 	} else {
 		stmt, err = s.db.db.Prepare(query)
 	}
+	// 如果准备SQL语句时发生错误，返回错误。
 	if err != nil {
 		return 0, err
 	}
+	// 执行SQL语句。
 	r, err := stmt.Exec(values)
+	// 如果执行SQL语句时发生错误，返回错误。
 	if err != nil {
 		return 0, err
 	}
+	// 根据SQL语句的类型，返回不同的结果。
 	if strings.Contains(strings.ToLower(query), "insert") {
+		// 如果是插入操作，返回最后插入的ID。
 		return r.LastInsertId()
 	}
+	// 如果不是插入操作，返回受影响的行数。
 	return r.RowsAffected()
 }
 
+// QueryRow 执行SQL查询，并将结果映射到提供的数据结构中。
 func (s *FrameSession) QueryRow(sql string, data any, queryValues ...any) error {
+	// 检查data是否为指针类型，因为需要直接修改其指向的值。
 	t := reflect.TypeOf(data)
 	if t.Kind() != reflect.Pointer {
 		return errors.New("data must be pointer")
 	}
+	// 准备SQL语句。
 	stmt, err := s.db.db.Prepare(sql)
 	if err != nil {
 		return err
 	}
+	// 执行查询。
 	rows, err := stmt.Query(queryValues...)
 	if err != nil {
 		return err
 	}
-	//id user_name age
+	// 获取查询结果的列名。
 	columns, err := rows.Columns()
 	if err != nil {
 		return err
 	}
+	// 初始化用于存储查询结果的变量。
 	values := make([]any, len(columns))
 	fieldScan := make([]any, len(columns))
 	for i := range fieldScan {
 		fieldScan[i] = &values[i]
 	}
+	// 处理查询结果的第一行数据。
 	if rows.Next() {
 		err := rows.Scan(fieldScan...)
 		if err != nil {
 			return err
 		}
+		// 获取data的类型和值。
 		tVar := t.Elem()
 		vVar := reflect.ValueOf(data).Elem()
+		// 遍历data的字段，将查询结果映射到相应字段。
 		for i := 0; i < tVar.NumField(); i++ {
 			name := tVar.Field(i).Name
 			tag := tVar.Field(i).Tag
-			//id,auto
-			sqlTag := tag.Get("msorm")
+			// 获取字段的SQL标签。
+			sqlTag := tag.Get("gorm")
 			if sqlTag == "" {
 				sqlTag = strings.ToLower(Name(name))
 			} else {
@@ -817,18 +897,17 @@ func (s *FrameSession) QueryRow(sql string, data any, queryValues ...any) error 
 					sqlTag = sqlTag[:strings.Index(sqlTag, ",")]
 				}
 			}
-
+			// 将查询结果映射到data的字段。
 			for j, colName := range columns {
 				if sqlTag == colName {
 					target := values[j]
 					targetValue := reflect.ValueOf(target)
 					fieldType := tVar.Field(i).Type
-					//这样不行 类型不匹配 转换类型
+					// 将查询结果转换为字段的类型。
 					result := reflect.ValueOf(targetValue.Interface()).Convert(fieldType)
 					vVar.Field(i).Set(result)
 				}
 			}
-
 		}
 	}
 	return nil
