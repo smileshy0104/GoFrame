@@ -4,4 +4,5 @@ use (
 	./frame
 	./goblog
 	./mall
+	./mall-gateway
 )
