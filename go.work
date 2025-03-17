@@ -3,6 +3,8 @@ go 1.20
 use (
 	./frame
 	./goblog
+	./rpc-client
+	./rpc-server
 	./mall
 	./mall-gateway
 )

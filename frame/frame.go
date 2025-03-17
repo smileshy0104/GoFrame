@@ -286,11 +286,11 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // Run 启动 HTTP 服务器，监听指定的端口。
-func (e *Engine) Run() {
+func (e *Engine) Run(addr string) {
 	// 将 Engine 实例注册为 HTTP 服务器的处理程序
 	http.Handle("/", e)
 	// 监听 8111 端口并启动服务器
-	err := http.ListenAndServe(":8111", nil)
+	err := http.ListenAndServe(addr, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
