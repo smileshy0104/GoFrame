@@ -15,8 +15,8 @@ func main() {
 	g := engine.Group("order")
 	g.Get("/find", func(ctx *frame.Context) {
 		//查询商品
-		bytes, err := client.Session().Get("http://localhost:9002/goods/find", nil)
-		//bytes, err := client.Get("http://localhost:9002/goods/find", nil)
+		//bytes, err := client.Session().Get("http://localhost:9002/goods/find", nil)
+		bytes, err := client.Get("http://localhost:9002/goods/find", nil)
 		if err != nil {
 			ctx.Logger.Error(err)
 		}

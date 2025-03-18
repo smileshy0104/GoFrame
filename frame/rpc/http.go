@@ -39,6 +39,60 @@ func NewHttpClient() *FrameHttpClient {
 	return &FrameHttpClient{client: client, serviceMap: make(map[string]FrameService)}
 }
 
+// Get 方法通过 HTTP GET 请求获取指定 URL 的资源。
+// 如果有参数，会将参数转换为查询字符串并附加到 URL。
+func (c *FrameHttpClient) Get(url string, args map[string]any) ([]byte, error) {
+	// 如果有参数，将参数转换为查询字符串并附加到URL。
+	if args != nil && len(args) > 0 {
+		url = url + "?" + c.toValues(args)
+	}
+	// 创建GET请求。
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	// 处理响应。
+	return c.handleResponse(req)
+}
+
+// handleResponse 方法处理HTTP请求的响应。
+// 它发送HTTP请求，读取并组装响应体，直到遇到EOF或读取错误。
+func (c *FrameHttpClient) handleResponse(req *http.Request) ([]byte, error) {
+	// 发送HTTP请求。
+	var err error
+	response, err := c.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	// 检查HTTP状态码是否为200。
+	if response.StatusCode != 200 {
+		return nil, errors.New(response.Status)
+	}
+	// 初始化缓冲区和读取器。
+	buffLen := 79
+	buff := make([]byte, buffLen)
+	body := make([]byte, 0)
+	reader := bufio.NewReader(response.Body)
+	// 读取响应体。
+	for {
+		n, err := reader.Read(buff)
+		if err == io.EOF || n == 0 {
+			break
+		}
+		body = append(body, buff[:n]...)
+		if n < buffLen {
+			break
+		}
+	}
+	// 确保关闭响应体。
+	defer response.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+	// 返回响应体的字节数据。
+	return body, nil
+}
+
 // GetRequest 创建一个GET请求。
 // 如果有参数，则将它们附加到URL中。
 func (c *FrameHttpClient) GetRequest(method string, url string, args map[string]any) (*http.Request, error) {
